@@ -15,9 +15,10 @@ jobs:
       - name: Validate release version
         shell: pwsh
         run: |
-          $manifest = Test-ModuleManifest ./MotorCarrierTaxFiling/MotorCarrierTaxFiling.psd1
-          if ($env:GITHUB_REF_NAME -ne "v$($manifest.Version)") {
-            throw "Release tag $env:GITHUB_REF_NAME does not match module version v$($manifest.Version)."
+          # the data file, not Test-ModuleManifest, which would resolve RequiredModules before they are installed
+          $manifest = Import-PowerShellDataFile ./MotorCarrierTaxFiling/MotorCarrierTaxFiling.psd1
+          if ($env:GITHUB_REF_NAME -ne "v$($manifest.ModuleVersion)") {
+            throw "Release tag $env:GITHUB_REF_NAME does not match module version v$($manifest.ModuleVersion)."
           }
       - name: Install pinned dependencies
         shell: pwsh
