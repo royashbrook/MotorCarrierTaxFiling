@@ -107,11 +107,17 @@ function Split-MctfRecord {
     if ($FreightExceptions.Count -eq 0) {
         return [pscustomobject]@{ Good = @($Records); Bad = @() }
     }
+    # a plain loop, in input order: a hashtable lookup here once handed the formatter a null on a
+    # runner whose PowerShell grouped the keys differently from the machine the tests ran on
     $bad = [HashSet[string]]::new([string[]]@($FreightExceptions.fgt_number))
-    $groups = $Records | Group-Object { $bad.Contains($_.fgt_number) } -AsHashTable -AsString
+    $good = [List[object]]::new()
+    $badRows = [List[object]]::new()
+    foreach ($r in $Records) {
+        if ($bad.Contains([string]$r.fgt_number)) { $badRows.Add($r) } else { $good.Add($r) }
+    }
     [pscustomobject]@{
-        Good = @($groups['False'])
-        Bad  = @($groups['True'])
+        Good = @($good)
+        Bad  = @($badRows)
     }
 }
 
