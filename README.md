@@ -77,6 +77,6 @@ No scheduler, no credential storage, no amendment switch yet, and nothing about 
 Invoke-Pester -Path ./tests -CI
 ```
 
-Every fixture here is synthetic. Equivalence against live feeds is checked privately, on the private side, and stays there.
+Every fixture here is synthetic. Equivalence against live feeds is checked privately and stays there: for one filer and one settled period, all seven states produced the same rowset, the same four exception reports and the same return as the running feeds, byte for byte, with the Tennessee workbook compared by cell.
 
 License: [MIT](LICENSE).
