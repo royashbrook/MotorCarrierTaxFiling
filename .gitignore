@@ -1,0 +1,13 @@
+# run artifacts never belong in this repo; the fixtures under tests/fixtures are the only data here
+*.zip
+*.log
+*-FreightItemsAll.csv
+*-FreightItemsGood.csv
+*-FreightItemsBad.csv
+*-CompanyExceptions.csv
+*-FreightExceptions.csv
+[0-9][0-9][0-9][0-9][0-9][0-9].csv
+[0-9][0-9][0-9][0-9][0-9][0-9]-*.xml
+[0-9][0-9][0-9][0-9][0-9][0-9]*.edi
+[0-9][0-9][0-9][0-9][0-9][0-9]*.xlsx
+.DS_Store

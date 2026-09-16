@@ -1,0 +1,30 @@
+{
+  "file_format": "{0:yyyyMM}.csv",
+  "keepdays": 30,
+  "purgefiles": "*.tmp",
+  "sql": { "InputFile": "get-data.sql", "QueryTimeout": 1800 },
+  "mail": {
+    "from": "sender@example.invalid",
+    "to": ["filer@example.invalid"],
+    "subject": "FL Taxes"
+  },
+  "msgraph": {
+    "tenant_id": "TENANT_GUID",
+    "client_id": "APP_CLIENT_GUID",
+    "client_secret": ""
+  },
+  "mctf": {
+    "state": "FL",
+    "filer_id": "012345678"
+  },
+  "companytypes": [
+    { "t": "Supplier",  "k": "supplier.cmp_id",  "f": ["supplier.cmp_id", "supplier.name", "supplier.tax_id"] },
+    { "t": "Consignee", "k": "consignee.cmp_id", "f": ["consignee.cmp_id", "consignee.name", "consignee.tax_id", "consignee.dep"] }
+  ],
+  "tests": [
+    { "type": "Freight",   "name": "BOL is not a 3 to 12 digit number", "field": "bol",              "test": "^[0-9]{3,12}$" },
+    { "type": "Freight",   "name": "Net is not a 3 to 6 digit number",  "field": "net",              "test": "^[0-9]{3,6}$" },
+    { "type": "Supplier",  "name": "Supplier tax id is not 9 digits",   "field": "supplier.tax_id",  "test": "^[0-9]{9}$" },
+    { "type": "Consignee", "name": "Consignee tax id is not 9 digits",  "field": "consignee.tax_id", "test": "^[0-9]{9}$" }
+  ]
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--ADOR Acknowledgement 1-->
+<Transmission xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.irs.gov/efile">
+  <Jurisdiction>ALABAMA</Jurisdiction>
+  <TransmissionId>AL20260715110604</TransmissionId>
+  <Timestamp>2026-07-15T11:06:04-04:00</Timestamp>
+  <Transmitter>
+    <ETIN>12345</ETIN>
+  </Transmitter>
+  <ProcessType>T</ProcessType>
+  <AgentIdentifier>ACK</AgentIdentifier>
+  <AcknowledgementID>123456789</AcknowledgementID>
+  <AcknowledgementTimeStamp>2026-07-15T10:06:20-05:00</AcknowledgementTimeStamp>
+  <Errors />
+</Transmission>
