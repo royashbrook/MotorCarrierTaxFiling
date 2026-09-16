@@ -432,6 +432,16 @@ function Invoke-MctfFeed {
         }
     }
 
+    # a period is reported several times before its filing date, and each run replaces the last
+    # package for that period, as these feeds always have; version control keeps the earlier one.
+    # DataAgent itself refuses an existing artifact, which is why this happens here, first.
+    $existing = Join-Path $WorkingDirectory $cfg.file_format
+    if (Test-Path -LiteralPath $existing) {
+        if ($PSCmdlet.ShouldProcess($existing, 'Replace the package from an earlier run of this period')) {
+            Remove-Item -LiteralPath $existing
+        }
+    }
+
     $extract = if ($Mode -eq 'Mock') {
         $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName } else { Join-Path $PSScriptRoot 'synthetic.csv' }
         { param($context) Import-Csv -LiteralPath $fixture }.GetNewClosure()

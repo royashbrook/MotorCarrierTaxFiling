@@ -169,6 +169,16 @@ Describe 'Invoke-MctfFeed in Mock mode' {
         $xml | Should -Match '<ProcessType>P</ProcessType>'
         $xml | Should -Match '<ETIN>12345</ETIN>'
     }
+    It 'replaces the package from an earlier run of the same period' {
+        $dir = New-Case 'rerun'
+        $first = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt
+        $second = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt.AddDays(7)
+        $first.status | Should -Be 'completed'
+        $second.status | Should -Be 'completed'
+        $second.artifacts[0].name | Should -Be '202607.csv.zip'
+        @(Get-ChildItem $dir -Filter '*.zip').Count | Should -Be 1
+        Get-ZipEntries (Join-Path $dir '202607.csv.zip') | Should -Contain '20260811-FreightItemsGood.csv'
+    }
     It 'previews without writing anything under WhatIf' {
         $dir = New-Case 'whatif'
         $result = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt -WhatIf
