@@ -126,6 +126,33 @@ Describe 'Export-MctfExceptionReport' {
     }
 }
 
+Describe 'Invoke-MctfTransform on a source that returns tables' {
+    BeforeAll {
+        $script:table = [System.Data.DataTable]::new('rows')
+        foreach ($c in @($script:records[0].PSObject.Properties.Name)) { $null = $script:table.Columns.Add($c, [string]) }
+        foreach ($r in $script:records) {
+            $row = $script:table.NewRow()
+            foreach ($c in $script:table.Columns) { $row[$c.ColumnName] = [string]$r.($c.ColumnName) }
+            $script:table.Rows.Add($row)
+        }
+        $script:settings = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt
+    }
+    It 'refuses a table collection instead of writing the table object as freight' {
+        $set = [System.Data.DataSet]::new()
+        $set.Tables.Add($script:table)
+        $dir = New-Case 'tables'
+        { Invoke-MctfTransform -Rows @($set.Tables) -Settings $script:settings -RunAt $script:runAt -ArtifactPath (Join-Path $dir '202607.csv.zip') } |
+            Should -Throw '*tables, not rows*'
+        @(Get-ChildItem $dir).Count | Should -Be 0
+    }
+    It 'takes the rows of a single table, which enumerates on its own' {
+        $dir = New-Case 'one-table'
+        Invoke-MctfTransform -Rows @($script:table) -Settings $script:settings -RunAt $script:runAt -ArtifactPath (Join-Path $dir '202607.csv.zip') | Out-Null
+        @(Import-Csv (Join-Path $dir '20260804-FreightItemsAll.csv')).Count | Should -Be $script:records.Count
+        @((Import-Csv (Join-Path $dir '20260804-FreightItemsAll.csv'))[0].PSObject.Properties.Name) | Should -Contain 'fgt_number'
+    }
+}
+
 Describe 'Resolve-MctfSettings' {
     It 'resolves the period into the tax file name and hands the runner the zip name' {
         $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt

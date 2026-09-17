@@ -188,6 +188,13 @@ function Invoke-MctfTransform {
     if (-not (Test-Path -LiteralPath $directory)) { $null = New-Item -ItemType Directory -Path $directory }
     $stamp = $RunAt.ToString('yyyyMMdd')
 
+    # a source that hands back tables rather than rows (Invoke-Sqlcmd -OutputAs DataTables, whose
+    # collection does not enumerate) would otherwise be written out as the TABLE's properties,
+    # CaseSensitive and Columns and the rest, and filed as if they were freight
+    if ($Rows.Count -and ($Rows[0] -is [System.Data.DataTable] -or $Rows[0] -is [System.Data.DataSet] -or $Rows[0] -is [System.Data.DataTableCollection])) {
+        throw 'the source returned tables, not rows. drop OutputAs from the sql settings, or take a DataAgent version whose sql source hands back rows.'
+    }
+
     # the rowset goes through a csv round trip first, so every value is the string the report
     # and the filing will show, whatever type the source returned
     Write-MctfLine 'Getting FreightItems'
