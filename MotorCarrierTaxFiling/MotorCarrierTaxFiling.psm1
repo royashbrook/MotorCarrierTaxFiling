@@ -1,8 +1,10 @@
 using namespace System.Collections.Generic
 
-# The stages below are plain functions with no DataAgent dependency, so they can be proven on
-# their own. Invoke-MctfFeed is the only place DataAgent is touched, and it pins 0.3.0 at call
-# time because the 0.4 candidate replaces the pipeline seam.
+# Every stage below is a plain function with no DataAgent dependency, so each can be proven on its
+# own. New-MctfConfig is the only DataAgent-shaped thing here: it returns the config that
+# Invoke-DataAgent takes, and the feed's own job.ps1 makes that call. DataAgent 0.4 runs from the
+# calling script's directory, so a module cannot make the call on the feed's behalf without moving
+# the log and the package into the module's install folder.
 
 function ConvertTo-MctfHashtable {
     param($Value)
@@ -156,20 +158,39 @@ function Compress-MctfPackage {
     finally { Pop-Location }
 }
 
+function Resolve-MctfPath {
+    param([Parameter(Mandatory)][string] $Path)
+    # .NET resolves a relative path against the process directory, which is not where the runner
+    # put PowerShell. the runner's location is the feed, and that is the one the paths mean.
+    if ([IO.Path]::IsPathRooted($Path)) { return [IO.Path]::GetFullPath($Path) }
+    [IO.Path]::GetFullPath((Join-Path (Get-Location -PSProvider FileSystem).ProviderPath $Path))
+}
+
+function Write-MctfLine {
+    param([Parameter(Mandatory)][AllowEmptyString()][string] $Message)
+    # the feeds' log line is Add-PrefixForLogging's `l`; outside a run (a test calling a stage on
+    # its own) there is no logger and the line is plain output
+    if (Get-Command l -ErrorAction Ignore) { l $Message } else { $Message }
+}
+
 function Invoke-MctfTransform {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][object[]] $Rows,
-        [Parameter(Mandatory)] $Context
+        [Parameter(Mandatory)] $Settings,
+        [Parameter(Mandatory)][datetime] $RunAt,
+        [Parameter(Mandatory)][string] $ArtifactPath
     )
-    $cfg = $Context.Config
+    $cfg = $Settings
     $mctf = $cfg.mctf
-    $directory = Split-Path -Parent $Context.ArtifactPath
-    $stamp = $Context.RunAt.ToString('yyyyMMdd')
+    $artifact = Resolve-MctfPath $ArtifactPath
+    $directory = Split-Path -Parent $artifact
+    if (-not (Test-Path -LiteralPath $directory)) { $null = New-Item -ItemType Directory -Path $directory }
+    $stamp = $RunAt.ToString('yyyyMMdd')
 
     # the rowset goes through a csv round trip first, so every value is the string the report
     # and the filing will show, whatever type the source returned
-    l 'Getting FreightItems'
+    Write-MctfLine 'Getting FreightItems'
     $allPath = Join-Path $directory "$stamp-FreightItemsAll.csv"
     $columns = if ($Rows[0] -is [System.Data.DataRow]) {
         @($Rows[0].Table.Columns.ColumnName)
@@ -178,19 +199,19 @@ function Invoke-MctfTransform {
     }
     $Rows | Select-Object -Property $columns | Export-Csv -NoTypeInformation -LiteralPath $allPath
     $records = @(Import-Csv -LiteralPath $allPath)
-    l "FreightItems:`t$($records.Count)"
+    Write-MctfLine "FreightItems:`t$($records.Count)"
 
-    l 'Getting Company and Freight TestResults'
+    Write-MctfLine 'Getting Company and Freight TestResults'
     $exceptions = Test-MctfRecord -Records $records -Tests @($cfg.tests) -CompanyTypes @($cfg.companytypes)
-    l "CompanyTR:`t$($exceptions.Company.Count)"
-    l "FreightTR:`t$($exceptions.Freight.Count)"
+    Write-MctfLine "CompanyTR:`t$($exceptions.Company.Count)"
+    Write-MctfLine "FreightTR:`t$($exceptions.Freight.Count)"
 
-    l 'Getting Good/Bad FreightItems'
+    Write-MctfLine 'Getting Good/Bad FreightItems'
     $split = Split-MctfRecord -Records $records -FreightExceptions $exceptions.Freight
-    l "FreightItemsG:`t$($split.Good.Count)"
-    l "FreightItemsB:`t$($split.Bad.Count)"
+    Write-MctfLine "FreightItemsG:`t$($split.Good.Count)"
+    Write-MctfLine "FreightItemsB:`t$($split.Bad.Count)"
 
-    l 'Saving Files'
+    Write-MctfLine 'Saving Files'
     $taxFile = Join-Path $directory $mctf.file
     if ($split.Good.Count -eq 0) {
         # nothing passed, the package still goes out so the exception reports reach the filer
@@ -199,18 +220,25 @@ function Invoke-MctfTransform {
         $convert = @{ State = $mctf.state; Period = $mctf.period; OutputPath = $taxFile }
         if ($mctf.filer_id) { $convert.FilerId = [string]$mctf.filer_id }
         if ($mctf.state -ne 'TN') {
-            $convert.GeneratedAt = if ($mctf.generated_at) { [datetimeoffset]$mctf.generated_at } else { [datetimeoffset]$Context.RunAt }
+            $convert.GeneratedAt = if ($mctf.generated_at) { [datetimeoffset]$mctf.generated_at } else { [datetimeoffset]$RunAt }
         }
         $options = ConvertTo-MctfHashtable $mctf.state_options
         if ($options.Count -gt 0) { $convert.StateOptions = $options }
         if ($mctf.template_path) { $convert.TemplatePath = $mctf.template_path }
         $split.Good | ConvertTo-MotorFuelTaxFile @convert
     }
-    $names = Export-MctfExceptionReport -Exceptions $exceptions -Split $split -RunAt $Context.RunAt -Directory $directory
+    $names = Export-MctfExceptionReport -Exceptions $exceptions -Split $split -RunAt $RunAt -Directory $directory
 
-    l 'Zipping Files'
-    Compress-MctfPackage -Directory $directory -DestinationPath $Context.ArtifactPath `
+    Write-MctfLine 'Zipping Files'
+    Compress-MctfPackage -Directory $directory -DestinationPath $artifact `
         -Members @($names.Company, $names.Freight, $names.Good, $names.Bad, $mctf.file)
+
+    $item = Get-Item -LiteralPath $artifact
+    # the run's receipt is these lines in the daily log, which the feed commits with the package
+    Write-MctfLine ("mctf: state={0} period={1} rows={2} good={3} bad={4} companyexceptions={5}" -f
+        $mctf.state, $mctf.period, $records.Count, $split.Good.Count, $split.Bad.Count, $exceptions.Company.Count)
+    Write-MctfLine ("mctf: artifact={0} bytes={1} sha256={2}" -f
+        $item.Name, $item.Length, (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash)
 }
 
 function Resolve-MctfSettings {
@@ -225,17 +253,18 @@ function Resolve-MctfSettings {
     if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, NC, SC, TN or VA.' }
     if (-not $cfg.file_format) { throw 'settings.file_format is required.' }
     $cfg.mctf.state = ([string]$cfg.mctf.state).ToUpperInvariant()
+    # the tests and the company types are filtered by property (Where-Object Type -eq), and a
+    # hashtable does not answer that: it matches nothing, every test silently passes, and every
+    # row is filed. objects, so a missing key is an error rather than an empty filter.
+    $cfg.tests = @($cfg.tests | ForEach-Object { [pscustomobject]$_ })
+    $cfg.companytypes = @($cfg.companytypes | ForEach-Object { [pscustomobject]$_ })
 
     $p = Get-MctfPeriod -RunAt $RunAt -Period $Period
     $taxFile = $cfg.file_format -f $p.Start
     $cfg.mctf.file = $taxFile
     $cfg.mctf.period = $p.Period
-    # the pipeline names its one artifact from file_format, so hand it the finished zip name
+    # the runner names its one artifact from file_format, so hand it the finished zip name
     $cfg.file_format = "$taxFile.zip"
-
-    # retention runs every pipeline run; a feed that keeps its artifacts must not lose them here
-    if (-not $cfg.keepdays) { $cfg.keepdays = 30 }
-    if (-not $cfg.purgefiles) { $cfg.purgefiles = '*.tmp' }
 
     if ($cfg.sql -is [string]) { $cfg.sql = @{ InputFile = $cfg.sql; QueryTimeout = 1800 } }
     if ($cfg.sql) {
@@ -264,6 +293,82 @@ function Resolve-MctfSettings {
         }
     }
     $cfg
+}
+
+function New-MctfConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string] $SettingsPath,
+        [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
+        [string] $Period,
+        [string] $FixturePath,
+        [switch] $NoSend,
+        [datetime] $RunAt = (Get-Date)
+    )
+    $loaded = Get-Module DataAgent
+    if ($loaded -and $loaded.Version -lt [version]'0.4.0') {
+        throw "DataAgent $($loaded.Version) is loaded; this config is the 0.4.0 src/fmt/dst contract. Import DataAgent 0.4.0 or later."
+    }
+    $settingsFile = Get-Item -LiteralPath $SettingsPath
+    $cfg = Resolve-MctfSettings -SettingsPath $settingsFile.FullName -RunAt $RunAt -Period $Period
+    $adapters = Join-Path $PSScriptRoot 'adapters'
+
+    # a rehearsal writes beside the feed, because the runner sets its own location, so it writes
+    # into a subdirectory the feed does not commit. a Live run writes the package where it always has.
+    $artifact = if ($Mode -eq 'Live') { $cfg.file_format } else { Join-Path 'rehearsal' $cfg.file_format }
+
+    $src = if ($Mode -eq 'Mock') {
+        $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName } else { Join-Path $PSScriptRoot 'synthetic.csv' }
+        @{ adapter = 'csv'; args = @{ LiteralPath = $fixture } }
+    } else {
+        if (-not $cfg.sql) { throw 'settings.sql is required for a run that reads the database.' }
+        $sqlArgs = @{} + $cfg.sql
+        if ($env:CONNECTION_STRING) { $sqlArgs.ConnectionString = $env:CONNECTION_STRING }
+        @{ adapter = 'sql'; args = $sqlArgs }
+    }
+
+    $dst = if ($Mode -ne 'Live') {
+        @{ adapter = (Join-Path $adapters 'skip.ps1'); args = @{ Reason = "$Mode is a rehearsal" } }
+    } elseif ($cfg.mctf.submit) {
+        # alabama submits the return itself and mails the state's response as the body, so NoSend
+        # skips only that mail: the filing still happens when the window is open
+        @{ adapter = (Join-Path $adapters 'alabama.ps1'); args = @{ Settings = $cfg; RunAt = $RunAt; NoSend = [bool]$NoSend } }
+    } elseif ($NoSend) {
+        @{ adapter = (Join-Path $adapters 'skip.ps1'); args = @{ Reason = 'NoSend' } }
+    } else {
+        if ($cfg.msgraph.client_secret) { throw 'client_secret belongs in the environment, not settings.' }
+        @{ adapter = (Join-Path $adapters 'mail.ps1'); args = @{ Settings = $cfg } }
+    }
+
+    $config = @{
+        file_format = $artifact
+        src         = $src
+        fmt         = @{ adapter = (Join-Path $adapters 'package.ps1'); args = @{ Settings = $cfg; RunAt = $RunAt } }
+        dst         = @($dst)
+    }
+    # retention is the feed's choice; set it and the runner needs the Clear-Files module installed
+    if ($cfg.keepdays) { $config.keepdays = $cfg.keepdays }
+    if ($cfg.purgefiles) { $config.purgefiles = $cfg.purgefiles }
+    $config
+}
+
+function Send-MctfPackageMail {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
+    param(
+        [Parameter(Mandatory)] $Settings,
+        [Parameter(Mandatory)][string] $ArtifactPath
+    )
+    if (-not $PSCmdlet.ShouldProcess($ArtifactPath, 'Mail the package')) { return }
+    if ([string]::IsNullOrWhiteSpace($env:CLIENT_SECRET)) { throw 'CLIENT_SECRET is required.' }
+    if ($Settings.msgraph.client_secret) { throw 'client_secret belongs in the environment, not settings.' }
+    Import-Module Send-FileViaEmail -ErrorAction Stop
+    # the same call the feeds have always made: the path as given is also the attachment's name,
+    # and the content type is that module's default
+    $cfg = @{ mail = $Settings.mail; msgraph = @{} + $Settings.msgraph }
+    $cfg.msgraph.client_secret = $env:CLIENT_SECRET
+    $response = Send-FileViaEmail -file $ArtifactPath -cfg $cfg
+    if ($response) { Write-MctfLine ([string]$response) }
+    Write-MctfLine ("mctf: delivery=email artifact={0} to={1}" -f $ArtifactPath, (@($Settings.mail.to) -join ','))
 }
 
 function Test-MctfFilingWindow {
@@ -318,13 +423,15 @@ function Read-MctfAlabamaAcknowledgement {
 function Send-MctfAcknowledgementMail {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
-        [Parameter(Mandatory)] $Context,
+        [Parameter(Mandatory)] $Settings,
+        [Parameter(Mandatory)][string] $ArtifactPath,
         [Parameter(Mandatory)][AllowEmptyString()][string] $Body
     )
-    if (-not $PSCmdlet.ShouldProcess($Context.ArtifactPath, 'Mail the acknowledgement and the package')) { return }
+    if (-not $PSCmdlet.ShouldProcess($ArtifactPath, 'Mail the acknowledgement and the package')) { return }
     if ([string]::IsNullOrWhiteSpace($env:CLIENT_SECRET)) { throw 'CLIENT_SECRET is required.' }
-    $cfg = $Context.Config
+    $cfg = $Settings
     if ($cfg.msgraph.client_secret) { throw 'client_secret belongs in the environment, not settings.' }
+    $artifact = Resolve-MctfPath $ArtifactPath
     $token = Invoke-RestMethod -Method Post -Uri ('https://login.microsoftonline.com/{0}/oauth2/v2.0/token' -f $cfg.msgraph.tenant_id) -Body @{
         client_id     = $cfg.msgraph.client_id
         scope         = 'https://graph.microsoft.com/.default'
@@ -337,9 +444,9 @@ function Send-MctfAcknowledgementMail {
             body         = @{ contentType = 'Text'; content = $Body }
             attachments  = @(@{
                 '@odata.type' = '#microsoft.graph.fileAttachment'
-                name          = [IO.Path]::GetFileName($Context.ArtifactPath)
+                name          = [IO.Path]::GetFileName($artifact)
                 contentType   = 'application/zip'
-                contentBytes  = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Context.ArtifactPath))
+                contentBytes  = [Convert]::ToBase64String([IO.File]::ReadAllBytes($artifact))
             })
             toRecipients = @(@($cfg.mail.to) | ForEach-Object { @{ emailAddress = @{ address = $_ } } })
         }
@@ -351,18 +458,21 @@ function Send-MctfAcknowledgementMail {
 function Invoke-MctfSubmission {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
-        [Parameter(Mandatory)] $Context,
+        [Parameter(Mandatory)] $Settings,
+        [Parameter(Mandatory)][string] $ArtifactPath,
+        [datetime] $RunAt = (Get-Date),
         [switch] $NoSend
     )
-    $cfg = $Context.Config
+    $cfg = $Settings
     $submit = $cfg.mctf.submit
     $processType = [string]$cfg.mctf.state_options.ProcessType
-    $taxFile = Join-Path (Split-Path -Parent $Context.ArtifactPath) $cfg.mctf.file
+    $artifact = Resolve-MctfPath $ArtifactPath
+    $taxFile = Join-Path (Split-Path -Parent $artifact) $cfg.mctf.file
     $uri = $env:MCTF_SUBMIT_URI
     $window = @($submit.window | ForEach-Object { [int]$_ })
 
-    l "Submitting $($cfg.mctf.file)"
-    if ($processType -eq 'T' -or (Test-MctfFilingWindow -Date $Context.RunAt -Window $window)) {
+    Write-MctfLine "Submitting $($cfg.mctf.file)"
+    if ($processType -eq 'T' -or (Test-MctfFilingWindow -Date $RunAt -Window $window)) {
         if ([string]::IsNullOrWhiteSpace($uri) -or [string]::IsNullOrWhiteSpace($env:MCTF_SUBMIT_USER) -or [string]::IsNullOrWhiteSpace($env:MCTF_SUBMIT_PASSWORD)) {
             throw 'MCTF_SUBMIT_URI, MCTF_SUBMIT_USER and MCTF_SUBMIT_PASSWORD are required to submit.'
         }
@@ -375,100 +485,19 @@ function Invoke-MctfSubmission {
     } else {
         $response = 'No filing was done. Filing is only done when this job runs from the {0} to the {1}.' -f $window[0], $window[1]
     }
-    l "Response: $response"
+    Write-MctfLine "Response: $response"
     $ack = Read-MctfAlabamaAcknowledgement -Response ([string]$response)
 
     if ($NoSend) {
-        l 'NoSend: skipping the email, the response above is the whole result'
+        Write-MctfLine 'NoSend: skipping the email, the response above is the whole result'
     } else {
-        Send-MctfAcknowledgementMail -Context $Context -Body ([string]$response)
+        Send-MctfAcknowledgementMail -Settings $cfg -ArtifactPath $artifact -Body ([string]$response)
     }
-
-    $outcome = @{
-        adapter     = 'Submit-MctfAlabamaReturn'
-        destination = @{ uri = $uri; mail = if ($NoSend) { $null } else { $cfg.mail } }
-        state       = if ($ack.IsAcknowledged) { 'confirmed' } else { 'submitted' }
-        mock        = $false
-    }
-    if ($ack.TransmissionId) { $outcome.id = $ack.TransmissionId }
-    if ($ack.IsAcknowledged) { $outcome.acknowledgment = $ack.AcknowledgementId }
-    $outcome
+    $state = if ($ack.IsAcknowledged) { 'confirmed' } else { 'submitted' }
+    $id = if ($ack.AcknowledgementId) { $ack.AcknowledgementId } else { 'none' }
+    Write-MctfLine ("mctf: delivery=alabama state={0} acknowledgement={1} mailed={2}" -f $state, $id, (-not $NoSend))
 }
 
-function Get-MctfPipelineMode {
-    param(
-        [Parameter(Mandatory)][string] $Mode,
-        [Parameter(Mandatory)] $Config,
-        [switch] $NoSend,
-        [datetime] $RunAt = (Get-Date)
-    )
-    $pipelineMode = if ($Mode -eq 'Live') { 'Run' } else { $Mode }
-    if (-not $NoSend -or $pipelineMode -ne 'Run') { return $pipelineMode }
-    $submit = $Config.mctf.submit
-    if (-not $submit) { return 'ExportOnly' }
-    # a test submission always fires; a production one only inside the window. outside it, NoSend
-    # leaves nothing to deliver
-    $processType = [string]$Config.mctf.state_options.ProcessType
-    $window = @($submit.window | ForEach-Object { [int]$_ })
-    if ($processType -eq 'T' -or (Test-MctfFilingWindow -Date $RunAt -Window $window)) { 'Run' } else { 'ExportOnly' }
-}
-
-function Invoke-MctfFeed {
-    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
-    param(
-        [Parameter(Mandatory)][string] $SettingsPath,
-        [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
-        [string] $WorkingDirectory,
-        [string] $FixturePath,
-        [string] $Period,
-        [switch] $NoSend,
-        [datetime] $RunAt = (Get-Date)
-    )
-    $ErrorActionPreference = 'Stop'
-    Import-Module DataAgent -RequiredVersion 0.3.0 -ErrorAction Stop
-    $settingsFile = Get-Item -LiteralPath $SettingsPath
-    $cfg = Resolve-MctfSettings -SettingsPath $settingsFile.FullName -RunAt $RunAt -Period $Period
-    $pipelineMode = Get-MctfPipelineMode -Mode $Mode -Config $cfg -NoSend:$NoSend -RunAt $RunAt
-
-    if (-not $WorkingDirectory) {
-        $WorkingDirectory = if ($Mode -eq 'Live') {
-            $settingsFile.DirectoryName
-        } else {
-            (New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) ('mctf-' + [guid]::NewGuid().ToString('N')))).FullName
-        }
-    }
-
-    # a period is reported several times before its filing date, and each run replaces the last
-    # package for that period, as these feeds always have; version control keeps the earlier one.
-    # DataAgent itself refuses an existing artifact, which is why this happens here, first.
-    $existing = Join-Path $WorkingDirectory $cfg.file_format
-    if (Test-Path -LiteralPath $existing) {
-        if ($PSCmdlet.ShouldProcess($existing, 'Replace the package from an earlier run of this period')) {
-            Remove-Item -LiteralPath $existing
-        }
-    }
-
-    $extract = if ($Mode -eq 'Mock') {
-        $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName } else { Join-Path $PSScriptRoot 'synthetic.csv' }
-        { param($context) Import-Csv -LiteralPath $fixture }.GetNewClosure()
-    } else {
-        { param($context) Invoke-DataAgentSql $context }
-    }
-    $transform = { param($rows, $context) Invoke-MctfTransform -Rows $rows -Context $context }
-    $deliver = if ($Mode -eq 'Mock') {
-        { param($context) Write-DataAgentRecording $context }
-    } elseif ($cfg.mctf.submit) {
-        { param($context) Invoke-MctfSubmission -Context $context -NoSend:$NoSend }.GetNewClosure()
-    } else {
-        { param($context) Send-DataAgentMail $context }
-    }
-
-    # preference variables stop at a module boundary, so WhatIf has to be handed over by name
-    Invoke-DataAgentPipeline -Config $cfg -WorkingDirectory $WorkingDirectory -Mode $pipelineMode -RunAt $RunAt `
-        -Extract $extract -Transform $transform -Deliver $deliver -StateKeyDirectory $settingsFile.DirectoryName `
-        -WhatIf:$WhatIfPreference
-}
-
-Export-ModuleMember -Function Get-MctfPeriod, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
-    Invoke-MctfTransform, Resolve-MctfSettings, Invoke-MctfFeed, Test-MctfFilingWindow, Submit-MctfAlabamaReturn,
+Export-ModuleMember -Function Get-MctfPeriod, Send-MctfPackageMail, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
+    Invoke-MctfTransform, Resolve-MctfSettings, New-MctfConfig, Write-MctfLine, Test-MctfFilingWindow, Submit-MctfAlabamaReturn,
     Read-MctfAlabamaAcknowledgement, Send-MctfAcknowledgementMail, Invoke-MctfSubmission

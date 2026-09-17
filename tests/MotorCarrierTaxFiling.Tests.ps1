@@ -1,10 +1,10 @@
 BeforeAll {
     $ErrorActionPreference = 'Stop'
     $script:root = Split-Path -Parent $PSScriptRoot
+    $script:manifest = Join-Path $script:root 'MotorCarrierTaxFiling/MotorCarrierTaxFiling.psd1'
     $script:fixtures = Join-Path $PSScriptRoot 'fixtures'
-    Import-Module (Join-Path $script:root 'MotorCarrierTaxFiling/MotorCarrierTaxFiling.psd1') -Force
+    Import-Module $script:manifest -Force
     $script:work = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) ('mctf-tests-' + [guid]::NewGuid().ToString('N')))
-    $env:DATAAGENT_STATE_ROOT = Join-Path $script:work 'state'
     $script:records = @(Import-Csv -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/synthetic.csv'))
     $script:fl = Get-Content -LiteralPath (Join-Path $script:fixtures 'settings.fl.json') -Raw | ConvertFrom-Json
     $script:runAt = [datetime]'2026-08-04T11:00:00'
@@ -12,6 +12,31 @@ BeforeAll {
     function Get-ZipEntries([string] $Path) {
         $zip = [IO.Compression.ZipFile]::OpenRead($Path)
         try { @($zip.Entries | ForEach-Object { $_.FullName }) } finally { $zip.Dispose() }
+    }
+    # a feed is a directory with settings.json, its sql and a job.ps1 that calls Invoke-DataAgent.
+    # the runner works from the calling script's directory, so the run has to happen in its own
+    # process from that directory, exactly as the real feed does it.
+    function New-Feed {
+        param([string] $Name, [string] $Settings)
+        $dir = New-Case $Name
+        Copy-Item (Join-Path $script:fixtures $Settings) (Join-Path $dir 'settings.json')
+        Copy-Item (Join-Path $script:fixtures 'get-data.sql') (Join-Path $dir 'get-data.sql')
+        Set-Content -LiteralPath (Join-Path $dir 'job.ps1') -Value @"
+param([string] `$Mode = 'Mock', [string] `$Period, [switch] `$NoSend, [string] `$FixturePath, [switch] `$Preview, [datetime] `$RunAt = (Get-Date))
+`$ErrorActionPreference = 'Stop'
+Import-Module DataAgent -RequiredVersion 0.4.0 -ErrorAction Stop
+Import-Module '$script:manifest' -Force -ErrorAction Stop
+`$mctf = @{ SettingsPath = "`$PSScriptRoot/settings.json"; Mode = `$Mode; Period = `$Period; NoSend = `$NoSend; RunAt = `$RunAt }
+if (`$FixturePath) { `$mctf.FixturePath = `$FixturePath }
+`$cfg = New-MctfConfig @mctf
+Invoke-DataAgent -Config `$cfg -WhatIf:`$Preview
+"@
+        [pscustomobject]@{ Directory = $dir; Job = (Join-Path $dir 'job.ps1') }
+    }
+    function Invoke-Feed {
+        param($Feed, [string[]] $Arguments = @(), [datetime] $RunAt = $script:runAt)
+        $output = & pwsh -NoProfile -File $Feed.Job @Arguments -RunAt $RunAt.ToString('o') 2>&1 | Out-String
+        [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
     }
 }
 
@@ -102,17 +127,17 @@ Describe 'Export-MctfExceptionReport' {
 }
 
 Describe 'Resolve-MctfSettings' {
-    It 'resolves the period into the tax file name and hands the pipeline the zip name' {
+    It 'resolves the period into the tax file name and hands the runner the zip name' {
         $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt
         $cfg.mctf.file | Should -Be '202607.csv'
         $cfg.mctf.period | Should -Be '202607'
         $cfg.file_format | Should -Be '202607.csv.zip'
         ($cfg.file_format -f $script:runAt) | Should -Be '202607.csv.zip'
     }
-    It 'supplies retention defaults that cannot touch committed artifacts' {
+    It 'leaves retention alone unless the feed asked for it' {
         $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt
-        $cfg.keepdays | Should -Be 30
-        $cfg.purgefiles | Should -Be '*.tmp'
+        $cfg.keepdays | Should -BeNullOrEmpty
+        $cfg.purgefiles | Should -BeNullOrEmpty
     }
     It 'normalizes a string sql setting and injects the period variables' {
         $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt
@@ -146,44 +171,112 @@ Describe 'Resolve-MctfSettings' {
     }
 }
 
-Describe 'Invoke-MctfFeed in Mock mode' {
-    It 'runs florida through the DataAgent pipeline and packages five files' {
-        $dir = New-Case 'fl-mock'
-        $receipt = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt
-        $receipt.status | Should -Be 'completed'
-        $receipt.rowCount | Should -Be 6
-        $receipt.artifacts[0].name | Should -Be '202607.csv.zip'
-        $receipt.deliveries[0].mock | Should -BeTrue
-        Get-ZipEntries (Join-Path $dir '202607.csv.zip') | Should -Be @('20260804-CompanyExceptions.csv', '20260804-FreightExceptions.csv', '20260804-FreightItemsGood.csv', '20260804-FreightItemsBad.csv', '202607.csv')
-        (Get-Item (Join-Path $dir '202607.csv')).Length | Should -BeGreaterThan 0
-        @(Import-Csv (Join-Path $dir '20260804-FreightItemsGood.csv')).Count | Should -Be 4
-        @(Import-Csv (Join-Path $dir '20260804-FreightItemsAll.csv')).Count | Should -Be 6
-        Test-Path (Join-Path $dir '20260804.log') | Should -BeTrue
+Describe 'New-MctfConfig' {
+    BeforeAll {
+        $script:flSettings = Join-Path $script:fixtures 'settings.fl.json'
+        $script:alSettings = Join-Path $script:fixtures 'settings.al.json'
+        $script:savedSecret = $env:CLIENT_SECRET
+        $env:CLIENT_SECRET = 'test-secret'
+    }
+    AfterAll { $env:CLIENT_SECRET = $script:savedSecret }
+
+    It 'names the live package as the feeds always have, and keeps a rehearsal out of the feed' {
+        (New-MctfConfig -SettingsPath $script:flSettings -Mode Live -RunAt $script:runAt).file_format | Should -Be '202607.csv.zip'
+        (New-MctfConfig -SettingsPath $script:flSettings -Mode Mock -RunAt $script:runAt).file_format | Should -Be (Join-Path 'rehearsal' '202607.csv.zip')
+    }
+    It 'reads the packaged synthetic rows in Mock and the database otherwise' {
+        $mock = New-MctfConfig -SettingsPath $script:flSettings -Mode Mock -RunAt $script:runAt
+        $mock.src.adapter | Should -Be 'csv'
+        $mock.src.args.LiteralPath | Should -Be (Join-Path $script:root 'MotorCarrierTaxFiling/synthetic.csv')
+        $export = New-MctfConfig -SettingsPath $script:flSettings -Mode ExportOnly -RunAt $script:runAt
+        $export.src.adapter | Should -Be 'sql'
+        @($export.src.args.Variable) | Should -Be @('Period=202607', 'PeriodStart=2026-07-01', 'PeriodEnd=2026-07-31')
+    }
+    It 'takes a fixture path for Mock' {
+        $fixture = Join-Path $script:work 'fixture.csv'
+        $script:records | Export-Csv -NoTypeInformation -LiteralPath $fixture
+        (New-MctfConfig -SettingsPath $script:flSettings -Mode Mock -FixturePath $fixture -RunAt $script:runAt).src.args.LiteralPath | Should -Be $fixture
+    }
+    It 'packages through the module adapter and passes the resolved settings' {
+        $cfg = New-MctfConfig -SettingsPath $script:flSettings -Mode Live -RunAt $script:runAt
+        $cfg.fmt.adapter | Should -Be (Join-Path $script:root 'MotorCarrierTaxFiling/adapters/package.ps1')
+        $cfg.fmt.args.Settings.mctf.file | Should -Be '202607.csv'
+        $cfg.fmt.args.RunAt | Should -Be $script:runAt
+    }
+    It 'mails a live florida run, and keeps the secret out of the config' {
+        $cfg = New-MctfConfig -SettingsPath $script:flSettings -Mode Live -RunAt $script:runAt
+        @($cfg.dst).Count | Should -Be 1
+        $cfg.dst[0].adapter | Should -BeLike '*mail.ps1'
+        $cfg.dst[0].args.Settings.mail.subject | Should -Be 'FL Taxes'
+        ($cfg | ConvertTo-Json -Depth 20) | Should -Not -Match 'test-secret'
+    }
+    It 'sends nothing for a rehearsal or a NoSend run that only mails' {
+        (New-MctfConfig -SettingsPath $script:flSettings -Mode Mock -RunAt $script:runAt).dst[0].adapter | Should -BeLike '*skip.ps1'
+        (New-MctfConfig -SettingsPath $script:flSettings -Mode ExportOnly -RunAt $script:runAt).dst[0].adapter | Should -BeLike '*skip.ps1'
+        $nosend = New-MctfConfig -SettingsPath $script:flSettings -Mode Live -NoSend -RunAt $script:runAt
+        $nosend.dst[0].adapter | Should -BeLike '*skip.ps1'
+        $nosend.dst[0].args.Reason | Should -Be 'NoSend'
+    }
+    It 'keeps the alabama submission on a NoSend run and only drops its mail' {
+        $cfg = New-MctfConfig -SettingsPath $script:alSettings -Mode Live -NoSend -RunAt $script:runAt
+        $cfg.dst[0].adapter | Should -BeLike '*alabama.ps1'
+        $cfg.dst[0].args.NoSend | Should -BeTrue
+        (New-MctfConfig -SettingsPath $script:alSettings -Mode Live -RunAt $script:runAt).dst[0].args.NoSend | Should -BeFalse
+    }
+    It 'refuses a secret in settings' {
+        $bad = Join-Path $script:work 'secret-settings.json'
+        $json = Get-Content -LiteralPath $script:flSettings -Raw | ConvertFrom-Json
+        $json.msgraph.client_secret = 'in-the-file'
+        $json | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $bad
+        { New-MctfConfig -SettingsPath $bad -Mode Live -RunAt $script:runAt } | Should -Throw '*environment*'
+    }
+}
+
+Describe 'A feed run, end to end on DataAgent' {
+    It 'runs florida in Mock and packages five files beside the log' {
+        $feed = New-Feed -Name 'fl-mock' -Settings 'settings.fl.json'
+        $run = Invoke-Feed -Feed $feed
+        $run.ExitCode | Should -Be 0
+        $rehearsal = Join-Path $feed.Directory 'rehearsal'
+        Get-ZipEntries (Join-Path $rehearsal '202607.csv.zip') | Should -Be @('20260804-CompanyExceptions.csv', '20260804-FreightExceptions.csv', '20260804-FreightItemsGood.csv', '20260804-FreightItemsBad.csv', '202607.csv')
+        (Get-Item (Join-Path $rehearsal '202607.csv')).Length | Should -BeGreaterThan 0
+        @(Import-Csv (Join-Path $rehearsal '20260804-FreightItemsGood.csv')).Count | Should -Be 4
+        @(Import-Csv (Join-Path $rehearsal '20260804-FreightItemsAll.csv')).Count | Should -Be 6
+        # the log is the runner's, in the feed directory, and it carries the run's receipt lines
+        $log = Get-Content (Join-Path $feed.Directory ('{0:yyyyMMdd}.log' -f (Get-Date))) -Raw
+        $log | Should -Match 'mctf: state=FL period=202607 rows=6 good=4 bad=2'
+        $log | Should -Match 'mctf: artifact=202607.csv.zip bytes=\d+ sha256=[0-9A-F]{64}'
+        $log | Should -Match 'mctf: delivery=none reason=Mock is a rehearsal'
     }
     It 'runs alabama through the formatter with its state options' {
-        $dir = New-Case 'al-mock'
-        $receipt = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt
-        $receipt.status | Should -Be 'completed'
-        $receipt.artifacts[0].name | Should -Be '202607-tax-al.xml.zip'
-        $xml = Get-Content (Join-Path $dir '202607-tax-al.xml') -Raw
+        $feed = New-Feed -Name 'al-mock' -Settings 'settings.al.json'
+        (Invoke-Feed -Feed $feed).ExitCode | Should -Be 0
+        $xml = Get-Content (Join-Path $feed.Directory 'rehearsal/202607-tax-al.xml') -Raw
         $xml | Should -Match '<ProcessType>P</ProcessType>'
         $xml | Should -Match '<ETIN>12345</ETIN>'
     }
     It 'replaces the package from an earlier run of the same period' {
-        $dir = New-Case 'rerun'
-        $first = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt
-        $second = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt.AddDays(7)
-        $first.status | Should -Be 'completed'
-        $second.status | Should -Be 'completed'
-        $second.artifacts[0].name | Should -Be '202607.csv.zip'
-        @(Get-ChildItem $dir -Filter '*.zip').Count | Should -Be 1
-        Get-ZipEntries (Join-Path $dir '202607.csv.zip') | Should -Contain '20260811-FreightItemsGood.csv'
+        $feed = New-Feed -Name 'rerun' -Settings 'settings.fl.json'
+        (Invoke-Feed -Feed $feed).ExitCode | Should -Be 0
+        (Invoke-Feed -Feed $feed -RunAt $script:runAt.AddDays(7)).ExitCode | Should -Be 0
+        $rehearsal = Join-Path $feed.Directory 'rehearsal'
+        @(Get-ChildItem $rehearsal -Filter '*.zip').Count | Should -Be 1
+        Get-ZipEntries (Join-Path $rehearsal '202607.csv.zip') | Should -Contain '20260811-FreightItemsGood.csv'
+    }
+    It 'writes no package and says so when the source is empty' {
+        $feed = New-Feed -Name 'empty' -Settings 'settings.fl.json'
+        $empty = Join-Path $script:work 'empty.csv'
+        Set-Content -LiteralPath $empty -Value 'fgt_number'
+        $run = Invoke-Feed -Feed $feed -Arguments @('-Mode', 'Mock', '-FixturePath', $empty)
+        $run.ExitCode | Should -Be 0
+        $run.Output | Should -Match 'No data available'
+        Test-Path (Join-Path $feed.Directory 'rehearsal') | Should -BeFalse
     }
     It 'previews without writing anything under WhatIf' {
-        $dir = New-Case 'whatif'
-        $result = Invoke-MctfFeed -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -Mode Mock -WorkingDirectory $dir -RunAt $script:runAt -WhatIf
-        $result | Should -BeNullOrEmpty
-        @(Get-ChildItem $dir).Count | Should -Be 0
+        $feed = New-Feed -Name 'whatif' -Settings 'settings.fl.json'
+        $run = Invoke-Feed -Feed $feed -Arguments @('-Mode', 'Mock', '-Preview')
+        $run.ExitCode | Should -Be 0
+        @(Get-ChildItem $feed.Directory -Exclude 'job.ps1', 'settings.json', 'get-data.sql').Count | Should -Be 0
     }
 }
 
@@ -218,36 +311,17 @@ Describe 'Alabama submission stages' {
         try {
             $env:MCTF_SUBMIT_URI = $null; $env:MCTF_SUBMIT_USER = $null; $env:MCTF_SUBMIT_PASSWORD = $null
             $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -RunAt ([datetime]'2026-09-15')
-            $context = [pscustomobject]@{ Config = ($cfg | ConvertTo-Json -Depth 20 | ConvertFrom-Json); RunAt = [datetime]'2026-09-15'; ArtifactPath = (Join-Path $script:work 'none.zip') }
-            { Invoke-MctfSubmission -Context $context -NoSend } | Should -Throw '*MCTF_SUBMIT_URI*'
+            { Invoke-MctfSubmission -Settings $cfg -ArtifactPath (Join-Path $script:work 'none.zip') -RunAt ([datetime]'2026-09-15') -NoSend } |
+                Should -Throw '*MCTF_SUBMIT_URI*'
         } finally { $env:MCTF_SUBMIT_URI, $env:MCTF_SUBMIT_USER, $env:MCTF_SUBMIT_PASSWORD = $saved }
     }
-}
-
-Describe 'Pipeline mode selection' {
-    BeforeAll {
-        $script:alCfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -RunAt $script:runAt
-        $script:flCfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.fl.json') -RunAt $script:runAt
-    }
-    It 'maps Live to Run and leaves Mock and ExportOnly alone' {
-        InModuleScope MotorCarrierTaxFiling -Parameters @{ fl = $script:flCfg } {
-            Get-MctfPipelineMode -Mode Live -Config $fl | Should -Be 'Run'
-            Get-MctfPipelineMode -Mode Mock -Config $fl | Should -Be 'Mock'
-            Get-MctfPipelineMode -Mode ExportOnly -Config $fl | Should -Be 'ExportOnly'
-        }
-    }
-    It 'turns NoSend into ExportOnly for a feed that only mails' {
-        InModuleScope MotorCarrierTaxFiling -Parameters @{ fl = $script:flCfg } {
-            Get-MctfPipelineMode -Mode Live -Config $fl -NoSend | Should -Be 'ExportOnly'
-        }
-    }
-    It 'keeps a NoSend alabama run inside the window, and drops it outside' {
-        InModuleScope MotorCarrierTaxFiling -Parameters @{ al = $script:alCfg } {
-            $al.mctf.state_options.ProcessType = 'P'
-            Get-MctfPipelineMode -Mode Live -Config $al -NoSend -RunAt ([datetime]'2026-09-15') | Should -Be 'Run'
-            Get-MctfPipelineMode -Mode Live -Config $al -NoSend -RunAt ([datetime]'2026-09-08') | Should -Be 'ExportOnly'
-            $al.mctf.state_options.ProcessType = 'T'
-            Get-MctfPipelineMode -Mode Live -Config $al -NoSend -RunAt ([datetime]'2026-09-08') | Should -Be 'Run'
-        }
+    It 'says no filing was done outside the window, without touching the state' {
+        $dir = New-Case 'al-outside-window'
+        $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -RunAt ([datetime]'2026-09-08')
+        Set-Content -LiteralPath (Join-Path $dir $cfg.mctf.file) -Value '<Transmission />'
+        Set-Content -LiteralPath (Join-Path $dir 'none.zip') -Value ''
+        $lines = Invoke-MctfSubmission -Settings $cfg -ArtifactPath (Join-Path $dir 'none.zip') -RunAt ([datetime]'2026-09-08') -NoSend
+        ($lines -join "`n") | Should -Match 'No filing was done'
+        ($lines -join "`n") | Should -Match 'delivery=alabama state=submitted acknowledgement=none mailed=False'
     }
 }

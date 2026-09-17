@@ -19,7 +19,7 @@ jobs:
           foreach ($dependency in $manifest.RequiredModules) {
             Install-Module $dependency.ModuleName -RequiredVersion $dependency.RequiredVersion -Scope CurrentUser -Force -Repository PSGallery
           }
-          Install-Module DataAgent -RequiredVersion 0.3.0 -Scope CurrentUser -Force -Repository PSGallery
+          Install-Module DataAgent -RequiredVersion 0.4.0 -Scope CurrentUser -Force -Repository PSGallery
           Install-Module Pester -MinimumVersion 5.7.1 -Scope CurrentUser -Force -Repository PSGallery
       - name: Pester
         shell: pwsh
