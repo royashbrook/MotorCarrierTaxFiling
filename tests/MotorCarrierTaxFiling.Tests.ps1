@@ -24,7 +24,7 @@ BeforeAll {
         Set-Content -LiteralPath (Join-Path $dir 'job.ps1') -Value @"
 param([string] `$Mode = 'Mock', [string] `$Period, [switch] `$NoSend, [string] `$FixturePath, [switch] `$Preview, [datetime] `$RunAt = (Get-Date))
 `$ErrorActionPreference = 'Stop'
-Import-Module DataAgent -RequiredVersion 0.4.0 -ErrorAction Stop
+Import-Module DataAgent -RequiredVersion 0.4.1 -ErrorAction Stop
 Import-Module '$script:manifest' -Force -ErrorAction Stop
 `$mctf = @{ SettingsPath = "`$PSScriptRoot/settings.json"; Mode = `$Mode; Period = `$Period; NoSend = `$NoSend; RunAt = `$RunAt }
 if (`$FixturePath) { `$mctf.FixturePath = `$FixturePath }

@@ -1,6 +1,6 @@
 # MotorCarrierTaxFiling
 
-Validate freight records, report the exceptions, format the state return, package it, and for Alabama submit it. The stages of a motor carrier tax filing feed, as a PowerShell module that runs on [DataAgent](https://github.com/royashbrook/DataAgent) 0.4.0.
+Validate freight records, report the exceptions, format the state return, package it, and for Alabama submit it. The stages of a motor carrier tax filing feed, as a PowerShell module that runs on [DataAgent](https://github.com/royashbrook/DataAgent) 0.4.1.
 
 MCTF is motor carrier tax filing. If you carry fuel in trucks, some states require a monthly report of what you carried, where it came from and where it went. You do not pay tax on it, you declare it. The per-state file formats live in [MotorFuelTaxFormats](https://github.com/royashbrook/motor-fuel-tax-formats); this module is everything around the formatter.
 
@@ -10,8 +10,8 @@ A feed is a directory with `settings.json`, a `get-data.sql` that produces flat 
 
 ```powershell
 param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
-Import-Module DataAgent -RequiredVersion 0.4.0 -ErrorAction Stop
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.2.0 -ErrorAction Stop
+Import-Module DataAgent -RequiredVersion 0.4.1 -ErrorAction Stop
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.2.1 -ErrorAction Stop
 $cfg = New-MctfConfig -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
 Invoke-DataAgent -Config $cfg
 ```
@@ -87,7 +87,7 @@ No scheduler, no credential storage, no amendment switch yet, and nothing about 
 
 ## Upgrading from 0.1.1
 
-DataAgent 0.4.0 replaced the pipeline API with `Invoke-DataAgent -Config`, so `Invoke-MctfFeed` and `Get-MctfPipelineMode` are gone and the feed's job makes the call. The stage functions take `-Settings`, `-RunAt` and `-ArtifactPath` where they took a pipeline context. Pin both modules in the job: this module's 0.2.0 needs DataAgent 0.4.0 or later.
+DataAgent 0.4.0 replaced the pipeline API with `Invoke-DataAgent -Config`, so `Invoke-MctfFeed` and `Get-MctfPipelineMode` are gone and the feed's job makes the call. The stage functions take `-Settings`, `-RunAt` and `-ArtifactPath` where they took a pipeline context. Pin both modules in the job: this module's 0.2.x needs DataAgent 0.4.0 or later, and the examples here pin 0.4.1.
 
 ## Test
 
