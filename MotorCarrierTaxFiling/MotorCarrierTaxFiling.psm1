@@ -342,7 +342,17 @@ function Invoke-MctfStateShape {
     # spells its own way) lives in states/<state>.ps1. the source's helper columns leave after that.
     $hook = Join-Path $PSScriptRoot "states/$(([string]$Settings.mctf.state).ToUpperInvariant()).ps1"
     if ($Rows.Count -and (Test-Path -LiteralPath $hook)) { $Rows = @(& $hook -Rows $Rows -Settings $Settings) }
+    # a value longer than the state takes is cut to fit rather than holding the row back: nobody
+    # wants a filing to wait on a name that is a few characters long in the source system
+    $state = Get-MctfState -State ([string]$Settings.mctf.state)
+    $limits = if ($state -and $state.max_length) { $state.max_length } else { @{} }
     foreach ($r in $Rows) {
+        foreach ($field in $limits.Keys) {
+            $p = $r.PSObject.Properties[$field]
+            if ($p -and $p.Value -isnot [DBNull] -and $null -ne $p.Value -and ([string]$p.Value).Length -gt [int]$limits[$field]) {
+                $p.Value = ([string]$p.Value).Substring(0, [int]$limits[$field])
+            }
+        }
         if ($r.PSObject.Properties['consignee.county']) { $r.PSObject.Properties.Remove('consignee.county') }
         $r
     }

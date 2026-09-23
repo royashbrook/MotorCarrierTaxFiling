@@ -1,5 +1,5 @@
-# Alabama: the consignee address carries only letters, digits, spaces, hyphens and slashes, 35
-# characters at most, and a consignee with no DEP note reports its state there instead
+# Alabama: the consignee address carries only letters, digits, spaces, hyphens and slashes, and a
+# consignee with no DEP note reports its state there instead
 param([object[]] $Rows, $Settings)
 foreach ($r in $Rows) {
     $a = $r.PSObject.Properties['consignee.address']
@@ -8,9 +8,8 @@ foreach ($r in $Rows) {
     foreach ($pair in @(@('&', ' '), @('@', ' '), @('#', ' '), @('.', ' '), @(',', ''), @('(', ''), @(')', ''), @(':', ' '), @("'", ' '), @('  ', ''))) {
         $v = $v.Replace($pair[0], $pair[1])
     }
-    $v = $v.Trim(' ')
-    if ($v.Length -gt 35) { $v = $v.Substring(0, 35) }
-    $a.Value = $v
+    # trimmed here, cut to the state's length by max_length in AL.json
+    $a.Value = $v.Trim(' ')
     $d = $r.PSObject.Properties['consignee.dep']
     if ($d.Value -is [DBNull] -or $null -eq $d.Value) { $d.Value = $r.PSObject.Properties['consignee.state'].Value }
     $r

@@ -8,6 +8,11 @@
     "checked": "2026-09-23",
     "note": "the carrier csv layout is unchanged from the import specification these tests were written against: same 17 columns, lengths and types. the DEP county placeholder (county code then seven 1s) matches both DR-309653 and DR-309654. open against this version: the consignee name (D_NAME) is limited to 35 characters and the tests do not enforce that, the tax id tests accept more than 9 digits, and the bol test requires digits where the spec allows any characters."
   },
+  "max_length": {
+    "supplier.name": 35,
+    "consignor.name": 35,
+    "consignee.name": 35
+  },
   "tests": [
     {
       "type": "Freight",

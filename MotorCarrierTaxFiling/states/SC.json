@@ -8,6 +8,11 @@
     "checked": "2026-09-23",
     "note": "the transporter return conforms to every checked rule in this version. the rules that change live in the two spreadsheets, not the guide. open against this version: the consignor name may be 50 characters where we cut it to 35, net and gross may be any integer up to 18 digits (negative on an amended return) where the tests take 3 to 6 digits, and the bol may be any characters up to 15 where the tests take digits."
   },
+  "max_length": {
+    "supplier.name": 50,
+    "consignor.name": 50,
+    "consignee.name": 50
+  },
   "tests": [
     {
       "type": "Freight",

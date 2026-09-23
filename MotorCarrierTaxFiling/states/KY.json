@@ -8,6 +8,13 @@
     "checked": "2026-09-23",
     "note": "still the current guide when checked. the tests were written against this same version."
   },
+  "max_length": {
+    "supplier.name": 35,
+    "consignor.name": 35,
+    "consignee.name": 35,
+    "consignee.address": 35,
+    "consignee.city": 30
+  },
   "tests": [
     {
       "type": "Freight",

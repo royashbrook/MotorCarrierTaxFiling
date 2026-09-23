@@ -8,6 +8,13 @@
     "checked": "2026-09-23",
     "note": "nothing in 1.0.7 changes the transporter file these tests were written for (guide 1.0.4): schedule codes, the envelope, segment layouts and the product codes in use are unchanged, and the file conforms. one change matters for amendments only: BTI13 now takes CO (corrected) and 6S (supplemental) where 1.0.4 had 05 and 15. North Carolina counts an order in the period it started, not the one it completed."
   },
+  "max_length": {
+    "supplier.name": 35,
+    "consignor.name": 35,
+    "consignee.name": 35,
+    "consignee.address": 35,
+    "consignee.city": 30
+  },
   "period_basis": "start",
   "tests": [
     {

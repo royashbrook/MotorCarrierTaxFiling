@@ -455,10 +455,15 @@ Describe 'State shaping on the tmw source' {
         $out[0].PSObject.Properties.Name | Should -Not -Contain 'consignee.county'
         $out[0].PSObject.Properties.Name | Should -Contain 'cmd_code'
     }
-    It 'cuts the south carolina consignor name to 35 characters and leaves a null alone' {
-        $out = @(Invoke-MctfStateShape -Rows @((New-Row @{ 'consignor.name' = ('N' * 40) }), (New-Row @{ 'consignor.name' = [DBNull]::Value })) -Settings (New-ShapeSettings 'SC'))
-        $out[0].'consignor.name' | Should -Be ('N' * 35)
-        $out[1].'consignor.name' | Should -BeOfType [DBNull]
+    It 'cuts a value longer than the state takes to fit, and leaves a null or a short value alone' {
+        $sc = @(Invoke-MctfStateShape -Rows @((New-Row @{ 'consignor.name' = ('N' * 60) }), (New-Row @{ 'consignor.name' = [DBNull]::Value }), (New-Row @{ 'consignor.name' = ('N' * 40) })) -Settings (New-ShapeSettings 'SC'))
+        $sc[0].'consignor.name' | Should -Be ('N' * 50)
+        $sc[1].'consignor.name' | Should -BeOfType [DBNull]
+        $sc[2].'consignor.name' | Should -Be ('N' * 40)
+        $fl = @(Invoke-MctfStateShape -Rows @(New-Row @{ 'consignee.name' = 'FLORIDA STATE OF CHIPLEY DISTRICT OFFICE' }) -Settings (New-ShapeSettings 'FL'))
+        $fl[0].'consignee.name' | Should -Be 'FLORIDA STATE OF CHIPLEY DISTRICT O'
+        $ky = @(Invoke-MctfStateShape -Rows @(New-Row @{ 'consignee.city' = ('C' * 31) }) -Settings (New-ShapeSettings 'KY'))
+        $ky[0].'consignee.city' | Should -Be ('C' * 30)
     }
     It 'spells out the tennessee schedules' {
         $out = @(Invoke-MctfStateShape -Rows @(New-Row @{ schedule = '14B' }) -Settings (New-ShapeSettings 'TN'))
