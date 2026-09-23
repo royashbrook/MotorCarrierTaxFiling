@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.2.1'
+    ModuleVersion = '0.2.2'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -44,7 +44,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'A source that returns tables rather than rows (Invoke-Sqlcmd -OutputAs DataTables, whose collection does not enumerate) is refused instead of being written out as the properties of the table object itself. 0.2.0 was the DataAgent 0.4.0 move: New-MctfConfig returns the src/fmt/dst config and the feed job calls Invoke-DataAgent.'
+            ReleaseNotes = 'The Alabama submission no longer stops to ask for confirmation on an unattended run. Submit-MctfAlabamaReturn is high impact, so on a non-interactive runner its prompt threw before the request went out and the run mailed the error instead of filing. Invoke-MctfSubmission now calls it with -Confirm:$false, and a hand call still asks.'
         }
     }
 }

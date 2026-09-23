@@ -351,4 +351,22 @@ Describe 'Alabama submission stages' {
         ($lines -join "`n") | Should -Match 'No filing was done'
         ($lines -join "`n") | Should -Match 'delivery=alabama state=submitted acknowledgement=none mailed=False'
     }
+    It 'reaches the state on an unattended run instead of stopping to ask for confirmation' {
+        # a scheduled runner is non-interactive, so a confirmation prompt there is an error and
+        # the filing never leaves. nothing listens on the discard port, so a real attempt fails
+        # on the connection, which is the proof the call was made.
+        $dir = New-Case 'al-unattended'
+        $settings = Join-Path $script:fixtures 'settings.al.json'
+        $script = @"
+Import-Module '$($script:manifest)'
+`$env:MCTF_SUBMIT_URI = 'http://127.0.0.1:9/NewSubmission'; `$env:MCTF_SUBMIT_USER = 'u'; `$env:MCTF_SUBMIT_PASSWORD = 'p'; `$env:MCTF_PROCESS_TYPE = 'T'
+`$cfg = Resolve-MctfSettings -SettingsPath '$settings' -RunAt ([datetime]'2026-09-08')
+Set-Content -LiteralPath (Join-Path '$dir' `$cfg.mctf.file) -Value '<Transmission />'
+Set-Content -LiteralPath (Join-Path '$dir' 'none.zip') -Value ''
+Invoke-MctfSubmission -Settings `$cfg -ArtifactPath (Join-Path '$dir' 'none.zip') -RunAt ([datetime]'2026-09-08') -NoSend
+"@
+        $output = & pwsh -NoProfile -NonInteractive -Command $script 2>&1 | Out-String
+        $output | Should -Match 'Failed to submit TaxFile'
+        $output | Should -Not -Match 'ShouldProcess|NonInteractive'
+    }
 }

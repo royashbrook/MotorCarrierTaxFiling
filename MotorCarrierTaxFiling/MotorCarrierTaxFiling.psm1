@@ -484,7 +484,10 @@ function Invoke-MctfSubmission {
             throw 'MCTF_SUBMIT_URI, MCTF_SUBMIT_USER and MCTF_SUBMIT_PASSWORD are required to submit.'
         }
         try {
-            $response = Submit-MctfAlabamaReturn -Path $taxFile -Uri $uri -User $env:MCTF_SUBMIT_USER -Password $env:MCTF_SUBMIT_PASSWORD
+            # the scheduled run is the confirmation: a runner is non-interactive, and a high-impact
+            # prompt there throws before the request goes out. a hand call still asks.
+            $response = Submit-MctfAlabamaReturn -Path $taxFile -Uri $uri -User $env:MCTF_SUBMIT_USER -Password $env:MCTF_SUBMIT_PASSWORD `
+                -Confirm:$false -WhatIf:$WhatIfPreference
         } catch {
             # the failure still goes to the filer in the mail, as it always has
             $response = "Error: Failed to submit TaxFile. Details: $($_.Exception.Message)"
