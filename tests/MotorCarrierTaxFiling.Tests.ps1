@@ -483,6 +483,12 @@ Describe 'State shaping on the tmw source' {
             [pscustomobject]$row
         }
     }
+    It 'trims the spaces off a bol in every state, and leaves a null alone' {
+        $rows = @((New-Row @{ bol = ' 122259' }), (New-Row @{ bol = '1483388 ' }), (New-Row @{ bol = [DBNull]::Value }))
+        $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'AL'))
+        @($out[0].bol, $out[1].bol) | Should -Be @('122259', '1483388')
+        $out[2].bol | Should -BeOfType [DBNull]
+    }
     It 'drops the source helper column for every state, shaped or not' {
         $out = @(Invoke-MctfStateShape -Rows @(New-Row @{}) -Settings (New-ShapeSettings 'KY'))
         $out[0].PSObject.Properties.Name | Should -Not -Contain 'consignee.county'

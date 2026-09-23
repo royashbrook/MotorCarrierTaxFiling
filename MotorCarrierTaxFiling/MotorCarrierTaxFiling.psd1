@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.8.0'
+    ModuleVersion = '0.8.1'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -67,7 +67,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'Every state also gets a few default tests on top of its own, for what no state wants whatever its rules allow: zero gallons (net or gross) and a placeholder bol (blank, 0 or n/a). A row that fails one goes to the exception report like any other.'
+            ReleaseNotes = 'A bol with spaces around it is trimmed before the tests, in every state, so the document number is filed without them. 0.8.0 added default tests for zero gallons and a placeholder bol.'
         }
     }
 }

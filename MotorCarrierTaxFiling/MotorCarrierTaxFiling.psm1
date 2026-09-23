@@ -344,6 +344,9 @@ function Invoke-MctfStateShape {
     $state = Get-MctfState -State ([string]$Settings.mctf.state)
     $limits = if ($state -and $state.max_length) { $state.max_length } else { @{} }
     foreach ($r in $Rows) {
+        # a bol with a stray space is the same document; clean it rather than file the space
+        $bol = $r.PSObject.Properties['bol']
+        if ($bol -and $bol.Value -is [string]) { $bol.Value = $bol.Value.Trim() }
         foreach ($field in $limits.Keys) {
             $p = $r.PSObject.Properties[$field]
             if ($p -and $p.Value -isnot [DBNull] -and $null -ne $p.Value -and ([string]$p.Value).Length -gt [int]$limits[$field]) {
