@@ -10,7 +10,7 @@ A feed is a directory with `settings.json` and this job:
 
 ```powershell
 param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.8.1 -ErrorAction Stop
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.8.2 -ErrorAction Stop
 Invoke-MctfFeed -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
 ```
 
@@ -93,7 +93,7 @@ A feed on TMW can leave out `sql`, `tests` and `companytypes` and name its sourc
 
 The module reads the freight with a stock TMW query, `sources/tmw.sql`, which takes the period it is given, so an explicit `-Period` works. The settings carry only what belongs to one TMW installation: the revenue type and commodity classes in scope, the note types holding the shipper's terminal control number and the consignee's DEP number, and the product mapping from your commodity codes to the state's product codes. A commodity code with no mapping comes through as `nocode-<code>` and fails the commodity test, so it lands on the exception report rather than in the return.
 
-Each state's tests ship in `states/<state>.json`, with the specification they were built against, its version, where it lives, and the date it was last checked against what the state publishes. Where a test is stricter or looser than that specification the state file says so. `max_length` lists how long each field may be in that state, and a longer value is cut to fit before the rows are tested, so a long name in the source system never holds a row back. The company types are the same for every state and ship in `companytypes.json`. `defaulttests.json` adds a few tests to every state on top of its own, for what no state wants whatever its rules allow: zero gallons and a placeholder bol. A feed that sets its own `tests` or `companytypes` keeps them. Every supported state has a file.
+Each state's tests ship in `states/<state>.json`, with the specification they were built against, its version, where it lives, and the date it was last checked against what the state publishes. Where a test is stricter or looser than that specification the state file says so. `max_length` lists how long each field may be in that state, and a longer value is cut to fit before the rows are tested, so a long name in the source system never holds a row back. The company types are the same for every state and ship in `companytypes.json`. `defaulttests.json` adds a few tests to every state on top of its own, for what no state wants whatever its rules allow: a load under 100 gallons and a placeholder bol. A feed that sets its own `tests` or `companytypes` keeps them. Every supported state has a file.
 
 What differs by state lives with the state. A state file can set `period_basis` to `start` when the state counts an order in the month it started (North Carolina) rather than the month it completed. `states/<state>.ps1`, where there is one, shapes the rows before they are tested: Tennessee spells out its schedule names, Alabama cleans the consignee address and fills a missing DEP number with the state, and Florida marks each row delivered in the period or not and fills a missing DEP number with the DEP county placeholder from DR-309654.
 

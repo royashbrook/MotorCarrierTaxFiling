@@ -1,5 +1,5 @@
 [
-  { "type": "Freight", "name": "Net is zero gallons", "field": "net", "test": "^(?!0+$)" },
-  { "type": "Freight", "name": "Gross is zero gallons", "field": "gross", "test": "^(?!0+$)" },
+  { "type": "Freight", "name": "Net is under 100 gallons", "field": "net", "test": "^(?!0*[0-9]?[0-9]$)" },
+  { "type": "Freight", "name": "Gross is under 100 gallons", "field": "gross", "test": "^(?!0*[0-9]?[0-9]$)" },
   { "type": "Freight", "name": "BOL is a placeholder (blank, 0 or n/a)", "field": "bol", "test": "^(?!\\s*(0+|n/?a)?\\s*$)" }
 ]

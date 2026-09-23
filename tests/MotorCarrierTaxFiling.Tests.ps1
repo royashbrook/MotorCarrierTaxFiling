@@ -13,9 +13,8 @@ BeforeAll {
         $zip = [IO.Compression.ZipFile]::OpenRead($Path)
         try { @($zip.Entries | ForEach-Object { $_.FullName }) } finally { $zip.Dispose() }
     }
-    # a feed is a directory with settings.json, its sql and a job.ps1 that calls Invoke-DataAgent.
-    # the runner works from the calling script's directory, so the run has to happen in its own
-    # process from that directory, exactly as the real feed does it.
+    # a feed is a directory with settings.json, its sql and a job.ps1 that calls Invoke-MctfFeed,
+    # run in its own process, exactly as the real feed does it.
     function New-Feed {
         param([string] $Name, [string] $Settings)
         $dir = New-Case $Name
@@ -432,22 +431,23 @@ Describe 'The tmw source' {
         $cfg.mctf.source.revtype1 = "x'; drop table orderheader --"
         { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*plain code*'
     }
-    It 'keeps zero gallons and a placeholder bol out of every state, whatever its own rules allow' {
-        # alabama's own net test takes any whole number, zero included; the default still catches it
+    It 'keeps a load under 100 gallons and a placeholder bol out of every state, whatever its own rules allow' {
+        # alabama's own net test takes any whole number, 1 included; the default still catches it
         $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
         $cfg.mctf.state = 'AL'
         $al = Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/states/AL.json') -Raw | ConvertFrom-Json
         $tests = @($al.tests) + @(Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/defaulttests.json') -Raw | ConvertFrom-Json)
-        '0' -match ($al.tests | Where-Object field -eq 'net').test | Should -BeTrue
+        '1' -match ($al.tests | Where-Object field -eq 'net').test | Should -BeTrue
         $rows = @(
-            [pscustomobject]@{ ord_hdrnumber = '1'; fgt_number = '1'; net = '0'; gross = '0'; bol = '123456' }
+            [pscustomobject]@{ ord_hdrnumber = '1'; fgt_number = '1'; net = '1'; gross = '1'; bol = '123456' }
+            [pscustomobject]@{ ord_hdrnumber = '4'; fgt_number = '4'; net = '100'; gross = '100'; bol = '123458' }
             [pscustomobject]@{ ord_hdrnumber = '2'; fgt_number = '2'; net = '800'; gross = '810'; bol = 'n/a' }
             [pscustomobject]@{ ord_hdrnumber = '3'; fgt_number = '3'; net = '800'; gross = '810'; bol = '123457' }
         )
         $found = Test-MctfRecord -Records $rows -Tests @($tests | Where-Object type -eq 'Freight' | Where-Object field -in 'net', 'gross', 'bol') -CompanyTypes @()
-        @($found.Freight | Where-Object fgt_number -eq '1').test | Should -Contain 'Net is zero gallons'
+        @($found.Freight | Where-Object fgt_number -eq '1').test | Should -Contain 'Net is under 100 gallons'
         @($found.Freight | Where-Object fgt_number -eq '2').test | Should -Contain 'BOL is a placeholder (blank, 0 or n/a)'
-        @($found.Freight | Where-Object fgt_number -eq '3').Count | Should -Be 0
+        @($found.Freight | Where-Object fgt_number -in '3', '4').Count | Should -Be 0
     }
     It 'takes the state tests and company types from the module when settings carry none' {
         $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
