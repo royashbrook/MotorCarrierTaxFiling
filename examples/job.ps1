@@ -1,7 +1,3 @@
-param(
-    [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
-    [string] $Period,
-    [switch] $NoSend
-)
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.8.2 -ErrorAction Stop
-Invoke-MctfFeed -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
+param([string]$Period, [switch]$NoSend, [ValidateSet('Mock', 'ExportOnly', 'Live')][string]$Mode = 'Mock')
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.9.0
+Invoke-MctfFeed "$PSScriptRoot/settings.json" -Period $Period -Mode $Mode -NoSend:$NoSend

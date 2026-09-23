@@ -240,6 +240,9 @@ function Invoke-MctfTransform {
 
     $item = Get-Item -LiteralPath $artifact
     # the run's receipt is these lines in the daily log, which the feed commits with the package
+    # which code made this package, so a run proves its own versions
+    Write-MctfLine ("mctf: module={0} dataagent={1} pwsh={2}" -f
+        $MyInvocation.MyCommand.Module.Version, (Get-Command Invoke-DataAgent -ErrorAction Ignore).Version, $PSVersionTable.PSVersion)
     Write-MctfLine ("mctf: state={0} period={1} rows={2} good={3} bad={4} companyexceptions={5}" -f
         $mctf.state, $mctf.period, $records.Count, $split.Good.Count, $split.Bad.Count, $exceptions.Company.Count)
     Write-MctfLine ("mctf: artifact={0} bytes={1} sha256={2}" -f
@@ -419,8 +422,8 @@ function Resolve-MctfSettings {
     if ($cfg.mctf.submit) {
         if (-not $cfg.mctf.submit.window) { $cfg.mctf.submit.window = @(14, 20) }
         if (-not $cfg.mctf.state_options) { $cfg.mctf.state_options = @{} }
-        if (-not $cfg.mctf.state_options.ProcessType) {
-            $cfg.mctf.state_options.ProcessType = if ($env:MCTF_PROCESS_TYPE) { $env:MCTF_PROCESS_TYPE } else { 'P' }
+        if (-not $cfg.mctf.state_options.ProcessType -and $env:MCTF_PROCESS_TYPE) {
+            $cfg.mctf.state_options.ProcessType = $env:MCTF_PROCESS_TYPE
         }
     }
     $cfg
@@ -429,7 +432,7 @@ function Resolve-MctfSettings {
 function Invoke-MctfFeed {
     [CmdletBinding(SupportsShouldProcess)]
     param(
-        [Parameter(Mandatory)][string] $SettingsPath,
+        [Parameter(Mandatory, Position = 0)][Alias('SettingsPath')][string] $Settings,
         [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
         [string] $Period,
         [string] $FixturePath,
@@ -438,18 +441,18 @@ function Invoke-MctfFeed {
     )
     # the feed is the folder that holds its settings; the runner works there, not in this module's
     # install folder, which is where it would work if it went by who called it
-    $settings = (Resolve-Path -LiteralPath $SettingsPath).ProviderPath
-    $mctf = @{ SettingsPath = $settings; Mode = $Mode; Period = $Period; NoSend = $NoSend; RunAt = $RunAt }
+    $path = (Resolve-Path -LiteralPath $Settings).ProviderPath
+    $mctf = @{ Settings = $path; Mode = $Mode; Period = $Period; NoSend = $NoSend; RunAt = $RunAt }
     if ($FixturePath) { $mctf.FixturePath = $FixturePath }
     $cfg = New-MctfConfig @mctf
-    $cfg.directory = Split-Path -Parent $settings
+    $cfg.directory = Split-Path -Parent $path
     Invoke-DataAgent -Config $cfg -WhatIf:$WhatIfPreference
 }
 
 function New-MctfConfig {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string] $SettingsPath,
+        [Parameter(Mandatory, Position = 0)][Alias('SettingsPath')][string] $Settings,
         [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
         [string] $Period,
         [string] $FixturePath,
@@ -460,9 +463,18 @@ function New-MctfConfig {
     if ($loaded -and $loaded.Version -lt [version]'0.4.0') {
         throw "DataAgent $($loaded.Version) is loaded; this config is the 0.4.0 src/fmt/dst contract. Import DataAgent 0.4.0 or later."
     }
-    $settingsFile = Get-Item -LiteralPath $SettingsPath
+    $settingsFile = Get-Item -LiteralPath $Settings
     $cfg = Resolve-MctfSettings -SettingsPath $settingsFile.FullName -RunAt $RunAt -Period $Period
     $adapters = Join-Path $PSScriptRoot 'adapters'
+
+    # a submission stamps the return P (production) or T (test), and a real one has to say which:
+    # a missing environment must not quietly file as production. a rehearsal never submits.
+    if ($cfg.mctf.submit) {
+        if ($Mode -eq 'Live' -and $cfg.mctf.state_options.ProcessType -notin 'P', 'T') {
+            throw "ProcessType is '$($cfg.mctf.state_options.ProcessType)', expected P or T. set MCTF_PROCESS_TYPE (the GitHub Environment's AL_TAX_ENV)."
+        }
+        if (-not $cfg.mctf.state_options.ProcessType) { $cfg.mctf.state_options.ProcessType = 'P' }
+    }
 
     # a rehearsal writes beside the feed, because the runner sets its own location, so it writes
     # into a subdirectory the feed does not commit. a Live run writes the package where it always has.

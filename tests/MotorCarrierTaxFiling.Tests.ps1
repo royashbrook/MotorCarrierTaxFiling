@@ -24,7 +24,7 @@ BeforeAll {
 param([string] `$Mode = 'Mock', [string] `$Period, [switch] `$NoSend, [string] `$FixturePath, [switch] `$Preview, [datetime] `$RunAt = (Get-Date))
 `$ErrorActionPreference = 'Stop'
 Import-Module '$script:manifest' -Force -ErrorAction Stop
-`$mctf = @{ SettingsPath = "`$PSScriptRoot/settings.json"; Mode = `$Mode; Period = `$Period; NoSend = `$NoSend; RunAt = `$RunAt }
+`$mctf = @{ Settings = "`$PSScriptRoot/settings.json"; Mode = `$Mode; Period = `$Period; NoSend = `$NoSend; RunAt = `$RunAt }
 if (`$FixturePath) { `$mctf.FixturePath = `$FixturePath }
 Invoke-MctfFeed @mctf -WhatIf:`$Preview
 "@
@@ -182,13 +182,17 @@ Describe 'Resolve-MctfSettings' {
         { Resolve-MctfSettings -SettingsPath (Join-Path $legacy 'settings.json') -RunAt $script:runAt -Period '202606' } | Should -Throw '*period-aware*'
         { Resolve-MctfSettings -SettingsPath (Join-Path $legacy 'settings.json') -RunAt $script:runAt } | Should -Not -Throw
     }
-    It 'defaults the alabama process type and window when submit is configured' {
+    It 'takes the alabama process type from the environment, and refuses a live run that has none' {
         $saved = $env:MCTF_PROCESS_TYPE
         try {
             $env:MCTF_PROCESS_TYPE = $null
-            $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -RunAt $script:runAt
-            $cfg.mctf.state_options.ProcessType | Should -Be 'P'
+            $al = Join-Path $script:fixtures 'settings.al.json'
+            $cfg = Resolve-MctfSettings -SettingsPath $al -RunAt $script:runAt
+            $cfg.mctf.state_options.ProcessType | Should -BeNullOrEmpty
             @($cfg.mctf.submit.window) | Should -Be @(14, 20)
+            # a missing environment must not file as production; a rehearsal never submits, so it stamps P
+            { New-MctfConfig $al -Mode Live -RunAt $script:runAt } | Should -Throw '*expected P or T*'
+            (New-MctfConfig $al -Mode Mock -RunAt $script:runAt).fmt.args.Settings.mctf.state_options.ProcessType | Should -Be 'P'
             $env:MCTF_PROCESS_TYPE = 'T'
             (Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.al.json') -RunAt $script:runAt).mctf.state_options.ProcessType | Should -Be 'T'
         } finally { $env:MCTF_PROCESS_TYPE = $saved }
@@ -242,10 +246,14 @@ Describe 'New-MctfConfig' {
         $nosend.dst[0].args.Reason | Should -Be 'NoSend'
     }
     It 'keeps the alabama submission on a NoSend run and only drops its mail' {
-        $cfg = New-MctfConfig -SettingsPath $script:alSettings -Mode Live -NoSend -RunAt $script:runAt
-        $cfg.dst[0].adapter | Should -BeLike '*alabama.ps1'
-        $cfg.dst[0].args.NoSend | Should -BeTrue
-        (New-MctfConfig -SettingsPath $script:alSettings -Mode Live -RunAt $script:runAt).dst[0].args.NoSend | Should -BeFalse
+        $saved = $env:MCTF_PROCESS_TYPE
+        try {
+            $env:MCTF_PROCESS_TYPE = 'P'
+            $cfg = New-MctfConfig -SettingsPath $script:alSettings -Mode Live -NoSend -RunAt $script:runAt
+            $cfg.dst[0].adapter | Should -BeLike '*alabama.ps1'
+            $cfg.dst[0].args.NoSend | Should -BeTrue
+            (New-MctfConfig -SettingsPath $script:alSettings -Mode Live -RunAt $script:runAt).dst[0].args.NoSend | Should -BeFalse
+        } finally { $env:MCTF_PROCESS_TYPE = $saved }
     }
     It 'refuses a secret in settings' {
         $bad = Join-Path $script:work 'secret-settings.json'
@@ -284,6 +292,7 @@ Invoke-MctfFeed -SettingsPath '$(Join-Path $feed.Directory 'settings.json')' -Mo
         @(Import-Csv (Join-Path $rehearsal '20260804-FreightItemsAll.csv')).Count | Should -Be 6
         # the log is the runner's, in the feed directory, and it carries the run's receipt lines
         $log = Get-Content (Join-Path $feed.Directory ('{0:yyyyMMdd}.log' -f (Get-Date))) -Raw
+        $log | Should -Match 'mctf: module=\d+\.\d+\.\d+ dataagent=\d+\.\d+\.\d+ pwsh=\d'
         $log | Should -Match 'mctf: state=FL period=202607 rows=6 good=4 bad=2'
         $log | Should -Match 'mctf: artifact=202607.csv.zip bytes=\d+ sha256=[0-9A-F]{64}'
         $log | Should -Match 'mctf: delivery=none reason=Mock is a rehearsal'

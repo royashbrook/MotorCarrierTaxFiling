@@ -9,12 +9,12 @@ MCTF is motor carrier tax filing. If you carry fuel in trucks, some states requi
 A feed is a directory with `settings.json` and this job:
 
 ```powershell
-param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.8.2 -ErrorAction Stop
-Invoke-MctfFeed -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
+param([string]$Period, [switch]$NoSend, [ValidateSet('Mock', 'ExportOnly', 'Live')][string]$Mode = 'Mock')
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.9.0
+Invoke-MctfFeed "$PSScriptRoot/settings.json" -Period $Period -Mode $Mode -NoSend:$NoSend
 ```
 
-Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. `Invoke-MctfFeed` builds the run and hands it to DataAgent with the feed's folder as the run's directory, so the log and the package land beside `settings.json` wherever the job that calls it lives. A feed that reads its own sql adds `get-data.sql`; one on TMW does not (see below).
+Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. A blank `-Period` is the month before the run; `yyyyMM` picks another. The log's receipt starts with the module, DataAgent and PowerShell versions that made the package. `Invoke-MctfFeed` builds the run and hands it to DataAgent with the feed's folder as the run's directory, so the log and the package land beside `settings.json` wherever the job that calls it lives. A feed that reads its own sql adds `get-data.sql`; one on TMW does not (see below).
 
 `New-MctfConfig` builds the run, and is there on its own if you want to look at or change the config before running it yourself. It returns a source, a formatter and a destination:
 
