@@ -1,10 +1,12 @@
 {
   "state": "FL",
   "spec": {
-    "document": "Florida petroleum carrier import file specifications (flat file and CSV), with DR-309654 for the DEP facility number",
-    "where": "https://floridarevenue.com/Forms_library/current/dr309654.pdf",
-    "pinned": "2026-07-31",
-    "note": "the tests date from the 2020-10-01 specification. the DEP placeholder for an in-state delivery follows DR-309654 as of the pinned date. import spec: http://floridarevenue.com/taxes/Documents/import_file_specifications.pdf"
+    "document": "Florida DR-309653, Motor Fuel Taxes Comma Delimited (CSV) and Flat File Specifications, carrier return (DR-309637), with DR-309654 for the DEP facility number",
+    "version": "R. 01/26 (version 5)",
+    "where": "https://floridarevenue.com/Forms_library/current/dr309653.pdf",
+    "pinned": "2026-01",
+    "checked": "2026-09-23",
+    "note": "the carrier csv layout is unchanged from the import specification these tests were written against: same 17 columns, lengths and types. the DEP county placeholder (county code then seven 1s) matches both DR-309653 and DR-309654. open against this version: the consignee name (D_NAME) is limited to 35 characters and the tests do not enforce that, the tax id tests accept more than 9 digits, and the bol test requires digits where the spec allows any characters."
   },
   "tests": [
     {

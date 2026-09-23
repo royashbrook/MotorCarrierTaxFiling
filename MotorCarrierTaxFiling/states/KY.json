@@ -1,10 +1,12 @@
 {
   "state": "KY",
   "spec": {
-    "document": "Kentucky Motor Fuels Excise Tax Electronic Tax Filing Implementation Guide, ANSI X12 813 (KY_813_EDI_Guide_v001)",
-    "where": "https://motorfuels.ky.gov/fuelweb/assets/docs/KY_813_EDI_Guide_v001.pdf",
-    "pinned": "2021-04-19",
-    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide."
+    "document": "KY 813 EDI Guide, ANSI ASC X12 V4030",
+    "version": "v001",
+    "where": "https://revenue.ky.gov/Business/Motor-Fuels-Tax/PublishingImages/Pages/default/KY%20813%20EDI%20Guide%20%20v001%20%2011.20.2017.pdf",
+    "pinned": "2017-10-01",
+    "checked": "2026-09-23",
+    "note": "still the current guide when checked. the tests were written against this same version."
   },
   "tests": [
     {

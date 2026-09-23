@@ -512,6 +512,8 @@ Describe 'State shaping on the tmw source' {
             $state.tests.Count | Should -BeGreaterThan 10
             $state.spec.pinned | Should -Match '^\d{4}-\d{2}'
             $state.spec.where | Should -Match '^https?://'
+            $state.spec.version | Should -Not -BeNullOrEmpty
+            $state.spec.checked | Should -Match '^\d{4}-\d{2}-\d{2}$'
         }
     }
 }

@@ -1,10 +1,12 @@
 {
   "state": "TN",
   "spec": {
-    "document": "Tennessee Motor Fuels Schema and XML Return Guide, PET 373 transporter template",
-    "where": "https://www.tn.gov/revenue/taxes/motor-fuel-taxes/file-and-pay.html",
+    "document": "Tennessee PET 373 Transporter Excel Template, filed through TNTAP",
+    "version": "as published",
+    "where": "https://www.tn.gov/content/dam/tn/revenue/documents/efileandpay/tntap_info/motorfuels_spreadsheets/PET%20373%20Transporter%20Excel%20Template.xlsx",
     "pinned": "2020-02-11",
-    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide."
+    "checked": "2026-09-23",
+    "note": "the published template matched the one these tests were written against in every cell, formula and list when checked."
   },
   "tests": [
     {

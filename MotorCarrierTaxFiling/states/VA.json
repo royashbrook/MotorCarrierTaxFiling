@@ -1,10 +1,12 @@
 {
   "state": "VA",
   "spec": {
-    "document": "Virginia motor fuels electronic filing specifications (EDI)",
-    "where": "https://efiling.mvs-services.com/ft_va/filedownloads.asp",
-    "pinned": "2020-10-05",
-    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide."
+    "document": "VA 813 EDI Guide",
+    "version": "11.0",
+    "where": "https://www.dmv.virginia.gov/businesses/tax-act/vaets",
+    "pinned": "2017-04",
+    "checked": "2026-09-23",
+    "note": "Virginia files through VAETS now, and its current EDI guides sit behind the VAETS login. no newer public guide was found when checked, so the tests stay on 11.0."
   },
   "tests": [
     {

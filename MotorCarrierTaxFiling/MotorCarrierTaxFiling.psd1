@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.4.0'
+    ModuleVersion = '0.4.1'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -63,7 +63,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'Every state reads through the tmw source. A state file sets the period basis (North Carolina counts orders by start date), and states/<state>.ps1 shapes the rows where a state needs it: South Carolina cuts the consignor name to 35, Tennessee spells out its schedules, Alabama cleans the consignee address and fills a missing DEP from the state, Florida marks rows delivered in the period and fills a missing DEP with the county placeholder. The source setting shipper_state reads a shipper''s state from its city instead of the company record. All seven states ship their tests with a dated spec.''s tests and the company types now ship with the module, each state file naming the specification its tests were built against. Kentucky is the first state file. Feeds that carry their own sql and tests run as before.'
+            ReleaseNotes = 'Every state file is checked against the specification the state publishes today and names its version, where it lives, and the date of the check. North Carolina moves to guide 1.0.7, South Carolina to D282 April 2026 with its July 2026 validation rules, Florida to DR-309653 R. 01/26; Kentucky, Alabama, Tennessee and Virginia were already on the current version. Where a test is stricter or looser than the current rule the state file says so. No change to what any feed produces.''s state from its city instead of the company record. All seven states ship their tests with a dated spec.''s tests and the company types now ship with the module, each state file naming the specification its tests were built against. Kentucky is the first state file. Feeds that carry their own sql and tests run as before.'
         }
     }
 }

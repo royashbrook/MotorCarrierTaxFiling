@@ -1,10 +1,12 @@
 {
   "state": "SC",
   "spec": {
-    "document": "South Carolina Motor Fuel XML Implementation Guide (D282, draft at the time) with the FTA mfetv4.2 schema",
+    "document": "South Carolina D282 Software Developers Implementation Guide (FTA MFETv4.2), with the SC Schema Requirement Details and the Validation and Business Rules spreadsheets",
+    "version": "D282 April 2026, schema requirements Rev. 2026-06-26, validation rules Rev. 7-27-2026",
     "where": "https://dor.sc.gov/find-a-form/software-developers/software-developer-updates/motor-fuel-xml-program",
-    "pinned": "2026-07-16",
-    "note": "the tests date from the 2020-10-05 specification. the return moved to the D282 xml guide on the pinned date."
+    "pinned": "2026-07-27",
+    "checked": "2026-09-23",
+    "note": "the transporter return conforms to every checked rule in this version. the rules that change live in the two spreadsheets, not the guide. open against this version: the consignor name may be 50 characters where we cut it to 35, net and gross may be any integer up to 18 digits (negative on an amended return) where the tests take 3 to 6 digits, and the bol may be any characters up to 15 where the tests take digits."
   },
   "tests": [
     {

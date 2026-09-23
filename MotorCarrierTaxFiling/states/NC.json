@@ -1,10 +1,12 @@
 {
   "state": "NC",
   "spec": {
-    "document": "North Carolina Motor Fuels EDI Implementation Guide (North_Carolina_EDI_Guide_v1.0_v.1.0.5_042020)",
-    "where": "https://files.nc.gov/ncdor/documents/files/North_Carolina_EDI_Guide_v1.0_v.1.0.5_042020.pdf",
-    "pinned": "2020-10-05",
-    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide. North Carolina counts an order in the period it started, not the one it completed."
+    "document": "North Carolina Motor Fuels EDI Implementation Guide, transporter return GAS-1301 (CCR)",
+    "version": "1.0.7",
+    "where": "https://www.ncdor.gov/documents/motor-fuels-edi-implementation-guide",
+    "pinned": "2026-03",
+    "checked": "2026-09-23",
+    "note": "nothing in 1.0.7 changes the transporter file these tests were written for (guide 1.0.4): schedule codes, the envelope, segment layouts and the product codes in use are unchanged, and the file conforms. one change matters for amendments only: BTI13 now takes CO (corrected) and 6S (supplemental) where 1.0.4 had 05 and 15. North Carolina counts an order in the period it started, not the one it completed."
   },
   "period_basis": "start",
   "tests": [
