@@ -432,11 +432,30 @@ Describe 'The tmw source' {
         $cfg.mctf.source.revtype1 = "x'; drop table orderheader --"
         { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*plain code*'
     }
+    It 'keeps zero gallons and a placeholder bol out of every state, whatever its own rules allow' {
+        # alabama's own net test takes any whole number, zero included; the default still catches it
+        $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
+        $cfg.mctf.state = 'AL'
+        $al = Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/states/AL.json') -Raw | ConvertFrom-Json
+        $tests = @($al.tests) + @(Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/defaulttests.json') -Raw | ConvertFrom-Json)
+        '0' -match ($al.tests | Where-Object field -eq 'net').test | Should -BeTrue
+        $rows = @(
+            [pscustomobject]@{ ord_hdrnumber = '1'; fgt_number = '1'; net = '0'; gross = '0'; bol = '123456' }
+            [pscustomobject]@{ ord_hdrnumber = '2'; fgt_number = '2'; net = '800'; gross = '810'; bol = 'n/a' }
+            [pscustomobject]@{ ord_hdrnumber = '3'; fgt_number = '3'; net = '800'; gross = '810'; bol = '123457' }
+        )
+        $found = Test-MctfRecord -Records $rows -Tests @($tests | Where-Object type -eq 'Freight' | Where-Object field -in 'net', 'gross', 'bol') -CompanyTypes @()
+        @($found.Freight | Where-Object fgt_number -eq '1').test | Should -Contain 'Net is zero gallons'
+        @($found.Freight | Where-Object fgt_number -eq '2').test | Should -Contain 'BOL is a placeholder (blank, 0 or n/a)'
+        @($found.Freight | Where-Object fgt_number -eq '3').Count | Should -Be 0
+    }
     It 'takes the state tests and company types from the module when settings carry none' {
         $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
         $state = Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/states/KY.json') -Raw | ConvertFrom-Json
-        $cfg.tests.Count | Should -Be $state.tests.Count
+        $defaults = @(Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/defaulttests.json') -Raw | ConvertFrom-Json)
+        $cfg.tests.Count | Should -Be ($state.tests.Count + $defaults.Count)
         $cfg.tests[0].name | Should -Be $state.tests[0].name
+        $cfg.tests[-1].name | Should -Be $defaults[-1].name
         $cfg.companytypes.Count | Should -Be 4
         $state.spec.pinned | Should -Match '^\d{4}-\d{2}-\d{2}$'
     }

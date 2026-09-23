@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.7.0'
+    ModuleVersion = '0.8.0'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -59,6 +59,7 @@
         'states/TN.ps1'
         'states/VA.json'
         'companytypes.json'
+        'defaulttests.json'
         'adapters/skip.ps1'
     )
     PrivateData = @{
@@ -66,7 +67,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'Invoke-MctfFeed runs a feed in one call: it builds the run from the settings and hands it to DataAgent 0.5.0 with the folder that holds the settings as the run''s directory, so a job imports this module and makes that one call, and the log and package land beside the settings wherever the job lives. New-MctfConfig is still there for building the config on its own.'
+            ReleaseNotes = 'Every state also gets a few default tests on top of its own, for what no state wants whatever its rules allow: zero gallons (net or gross) and a placeholder bol (blank, 0 or n/a). A row that fails one goes to the exception report like any other.'
         }
     }
 }

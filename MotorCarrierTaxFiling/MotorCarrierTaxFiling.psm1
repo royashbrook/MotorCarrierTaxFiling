@@ -374,6 +374,8 @@ function Resolve-MctfSettings {
         if (-not $state) { throw "no tests in settings and none in the module for $($cfg.mctf.state)." }
         $cfg.tests = $state.tests
     }
+    # a few things no state wants whatever its own rules allow: zero gallons, a placeholder bol
+    $cfg.tests = @($cfg.tests) + @(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'defaulttests.json') -Raw | ConvertFrom-Json -AsHashtable)
     if (-not $cfg.companytypes) {
         $cfg.companytypes = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'companytypes.json') -Raw | ConvertFrom-Json -AsHashtable)
     }
