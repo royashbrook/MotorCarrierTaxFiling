@@ -6,7 +6,7 @@
     "where": "https://www.revenue.alabama.gov/wp-content/uploads/2022/03/developerguide_v7.pdf",
     "pinned": "2017-05",
     "checked": "2026-09-23",
-    "note": "still the current handbook when checked, and a test submission to the state's staging service was acknowledged with no errors the same day."
+    "note": "still the current handbook when checked, and a test submission to the state's staging service was acknowledged with no errors the same day. where the state sets a rule for bol, quantity or a tax id, the test follows it; where it does not, the test is ours."
   },
   "max_length": {
     "supplier.name": 50,
@@ -17,15 +17,15 @@
   "tests": [
     {
       "type": "Freight",
-      "name": "BOL is not a 3 to 20 digit number",
+      "name": "BOL is missing or over 20 characters",
       "field": "bol",
-      "test": "^[0-9]{3,20}$"
+      "test": "^.{1,20}$"
     },
     {
       "type": "Freight",
-      "name": "Net is not a 3 to 6 digit number",
+      "name": "Net is not a whole number of up to 18 digits",
       "field": "net",
-      "test": "^[0-9]{3,6}$"
+      "test": "^-?[0-9]{1,18}$"
     },
     {
       "type": "Freight",

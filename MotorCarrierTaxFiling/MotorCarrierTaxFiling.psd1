@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.5.0'
+    ModuleVersion = '0.6.0'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -9,6 +9,9 @@
     RequiredModules = @(
         @{ ModuleName = 'MotorFuelTaxFormats'; RequiredVersion = '0.1.1' }
         @{ ModuleName = 'Add-PrefixForLogging'; RequiredVersion = '1.0.0.2' }
+        @{ ModuleName = 'DataAgent'; RequiredVersion = '0.4.1' }
+        @{ ModuleName = 'SqlServer'; RequiredVersion = '22.4.5.1' }
+        @{ ModuleName = 'Send-FileViaEmail'; RequiredVersion = '2.0.0.0' }
     )
     FunctionsToExport = @(
         'Get-MctfPeriod'
@@ -62,7 +65,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'A value longer than the state takes is cut to fit instead of going out too long. Each state file lists its limits in max_length (names 35 for the X12 states and Florida, 50 for South Carolina and Alabama, address 35, city 30), applied to every row before the tests. South Carolina''s consignor name is now cut at its 50, not 35.''s state from its city instead of the company record. All seven states ship their tests with a dated spec.''s tests and the company types now ship with the module, each state file naming the specification its tests were built against. Kentucky is the first state file. Feeds that carry their own sql and tests run as before.'
+            ReleaseNotes = 'The module brings everything it runs on: DataAgent, SqlServer and Send-FileViaEmail are required modules now, so a feed imports this one module and nothing else. Where a state sets a rule for the bol, the gallons or a tax id, its test follows that rule; where it does not, the test stays as it was.'
         }
     }
 }

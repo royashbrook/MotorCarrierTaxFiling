@@ -6,7 +6,7 @@
     "where": "https://www.ncdor.gov/documents/motor-fuels-edi-implementation-guide",
     "pinned": "2026-03",
     "checked": "2026-09-23",
-    "note": "nothing in 1.0.7 changes the transporter file these tests were written for (guide 1.0.4): schedule codes, the envelope, segment layouts and the product codes in use are unchanged, and the file conforms. one change matters for amendments only: BTI13 now takes CO (corrected) and 6S (supplemental) where 1.0.4 had 05 and 15. North Carolina counts an order in the period it started, not the one it completed."
+    "note": "nothing in 1.0.7 changes the transporter file these tests were written for (guide 1.0.4): schedule codes, the envelope, segment layouts and the product codes in use are unchanged, and the file conforms. one change matters for amendments only: BTI13 now takes CO (corrected) and 6S (supplemental) where 1.0.4 had 05 and 15. North Carolina counts an order in the period it started, not the one it completed. where the state sets a rule for bol, quantity or a tax id, the test follows it; where it does not, the test is ours."
   },
   "max_length": {
     "supplier.name": 35,
@@ -19,21 +19,21 @@
   "tests": [
     {
       "type": "Freight",
-      "name": "BOL is not a 3 to 15 digit number",
+      "name": "BOL is missing or over 15 characters",
       "field": "bol",
-      "test": "^[0-9]{3,15}$"
+      "test": "^.{1,15}$"
     },
     {
       "type": "Freight",
-      "name": "Net is not a 3 to 6 digit number",
+      "name": "Net is not a 1 to 15 digit number",
       "field": "net",
-      "test": "^[0-9]{3,6}$"
+      "test": "^[0-9]{1,15}$"
     },
     {
       "type": "Freight",
-      "name": "Gross is not a 3 to 6 digit number",
+      "name": "Gross is not a 1 to 15 digit number",
       "field": "gross",
-      "test": "^[0-9]{3,6}$"
+      "test": "^[0-9]{1,15}$"
     },
     {
       "type": "Freight",
@@ -85,15 +85,15 @@
     },
     {
       "type": "Supplier",
-      "name": "Supplier Tax ID is not a 9 digit number",
+      "name": "Supplier Tax ID is not 9 to 18 characters",
       "field": "supplier.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9,18}$"
     },
     {
       "type": "Consignor",
-      "name": "Consignor Tax ID is not a 9 digit number",
+      "name": "Consignor Tax ID is not 9 to 18 characters",
       "field": "consignor.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9,18}$"
     },
     {
       "type": "Consignee",
@@ -121,9 +121,9 @@
     },
     {
       "type": "Consignee",
-      "name": "Consignee Tax ID is not a 9 digit number",
+      "name": "Consignee Tax ID is not 9 to 18 characters",
       "field": "consignee.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9,18}$"
     }
   ]
 }

@@ -10,13 +10,12 @@ A feed is a directory with `settings.json`, a `get-data.sql` that produces flat 
 
 ```powershell
 param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
-Import-Module DataAgent -RequiredVersion 0.4.1 -ErrorAction Stop
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.5.0 -ErrorAction Stop
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.6.0 -ErrorAction Stop
 $cfg = New-MctfConfig -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
 Invoke-DataAgent -Config $cfg
 ```
 
-The job makes the `Invoke-DataAgent` call itself, because the runner works from the calling script's directory: that is what puts the log and the package in the feed rather than in a module's install folder.
+Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. The job makes the `Invoke-DataAgent` call itself, because the runner works from the calling script's directory: that is what puts the log and the package in the feed rather than in a module's install folder.
 
 `New-MctfConfig` returns a source, a formatter and a destination:
 

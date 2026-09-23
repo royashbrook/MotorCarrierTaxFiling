@@ -319,7 +319,6 @@ function Get-MctfTmwRow {
         QueryTimeout = if ($src.query_timeout) { [int]$src.query_timeout } else { 1800 }
     }
     if ($env:CONNECTION_STRING) { $sql.ConnectionString = $env:CONNECTION_STRING }
-    Import-Module SqlServer -ErrorAction Stop
     $rows = @(Invoke-Sqlcmd @sql | ForEach-Object { if ($_ -is [Data.DataTable]) { $_.Rows } else { $_ } })
     $rows = @(ConvertTo-MctfProductCode -Rows $rows -Products $src.products)
     Invoke-MctfStateShape -Rows $rows -Settings $Settings
@@ -492,7 +491,6 @@ function Send-MctfPackageMail {
     if (-not $PSCmdlet.ShouldProcess($ArtifactPath, 'Mail the package')) { return }
     if ([string]::IsNullOrWhiteSpace($env:CLIENT_SECRET)) { throw 'CLIENT_SECRET is required.' }
     if ($Settings.msgraph.client_secret) { throw 'client_secret belongs in the environment, not settings.' }
-    Import-Module Send-FileViaEmail -ErrorAction Stop
     # the same call the feeds have always made: the path as given is also the attachment's name,
     # and the content type is that module's default
     $cfg = @{ mail = $Settings.mail; msgraph = @{} + $Settings.msgraph }

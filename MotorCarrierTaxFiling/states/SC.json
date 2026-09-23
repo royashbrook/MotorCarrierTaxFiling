@@ -6,7 +6,7 @@
     "where": "https://dor.sc.gov/find-a-form/software-developers/software-developer-updates/motor-fuel-xml-program",
     "pinned": "2026-07-27",
     "checked": "2026-09-23",
-    "note": "the transporter return conforms to every checked rule in this version. the rules that change live in the two spreadsheets, not the guide. open against this version: the consignor name may be 50 characters where we cut it to 35, net and gross may be any integer up to 18 digits (negative on an amended return) where the tests take 3 to 6 digits, and the bol may be any characters up to 15 where the tests take digits."
+    "note": "the transporter return conforms to every checked rule in this version. the rules that change live in the two spreadsheets, not the guide. the bol, net and gross tests follow them (document number up to 15 characters and not 0, quantities any whole number up to 18 digits, negative on an amended return)."
   },
   "max_length": {
     "supplier.name": 50,
@@ -16,21 +16,21 @@
   "tests": [
     {
       "type": "Freight",
-      "name": "BOL is not a 3 to 15 digit number",
+      "name": "BOL is missing, 0, or over 15 characters",
       "field": "bol",
-      "test": "^[0-9]{3,15}$"
+      "test": "^(?!0$).{1,15}$"
     },
     {
       "type": "Freight",
-      "name": "Net is not a 3 to 6 digit number",
+      "name": "Net is not a whole number of up to 18 digits",
       "field": "net",
-      "test": "^[0-9]{3,6}$"
+      "test": "^-?[0-9]{1,18}$"
     },
     {
       "type": "Freight",
-      "name": "Gross is not a 3 to 6 digit number",
+      "name": "Gross is not a whole number of up to 18 digits",
       "field": "gross",
-      "test": "^[0-9]{3,6}$"
+      "test": "^-?[0-9]{1,18}$"
     },
     {
       "type": "Freight",

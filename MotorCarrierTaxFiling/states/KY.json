@@ -6,7 +6,7 @@
     "where": "https://revenue.ky.gov/Business/Motor-Fuels-Tax/PublishingImages/Pages/default/KY%20813%20EDI%20Guide%20%20v001%20%2011.20.2017.pdf",
     "pinned": "2017-10-01",
     "checked": "2026-09-23",
-    "note": "still the current guide when checked. the tests were written against this same version."
+    "note": "still the current guide when checked. the tests were written against this same version. where the state sets a rule for bol, quantity or a tax id, the test follows it; where it does not, the test is ours."
   },
   "max_length": {
     "supplier.name": 35,
@@ -18,15 +18,15 @@
   "tests": [
     {
       "type": "Freight",
-      "name": "BOL is not a 3 to 20 digit number",
+      "name": "BOL is missing or over 15 characters",
       "field": "bol",
-      "test": "^[0-9]{3,20}$"
+      "test": "^.{1,15}$"
     },
     {
       "type": "Freight",
-      "name": "Net is not a 3 to 6 digit number",
+      "name": "Net is not a 1 to 15 digit number",
       "field": "net",
-      "test": "^[0-9]{3,6}$"
+      "test": "^[0-9]{1,15}$"
     },
     {
       "type": "Freight",
@@ -78,15 +78,15 @@
     },
     {
       "type": "Supplier",
-      "name": "Supplier Tax ID is not a 9 digit number",
+      "name": "Supplier Tax ID is not 9 to 18 characters",
       "field": "supplier.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9,18}$"
     },
     {
       "type": "Consignor",
-      "name": "Consignor Tax ID is not a 9 digit number",
+      "name": "Consignor Tax ID is not 9 characters",
       "field": "consignor.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9}$"
     },
     {
       "type": "Consignee",
@@ -114,9 +114,9 @@
     },
     {
       "type": "Consignee",
-      "name": "Consignee Tax ID is not a 9 digit number",
+      "name": "Consignee Tax ID is not 9 to 18 characters",
       "field": "consignee.tax_id",
-      "test": "^[0-9]{9,}$"
+      "test": "^.{9,18}$"
     }
   ]
 }
