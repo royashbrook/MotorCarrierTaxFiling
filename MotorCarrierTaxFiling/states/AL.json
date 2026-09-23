@@ -1,0 +1,95 @@
+{
+  "state": "AL",
+  "spec": {
+    "document": "Alabama Department of Revenue MFET developer guide v7",
+    "where": "https://revenue.alabama.gov/wp-content/uploads/2017/05/developerguide_v7.pdf",
+    "pinned": "2017-05",
+    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide."
+  },
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not a 3 to 20 digit number",
+      "field": "bol",
+      "test": "^[0-9]{3,20}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not a 3 to 6 digit number",
+      "field": "net",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Ship Date",
+      "field": "shipped",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Supplier",
+      "field": "supplier.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing AccountOf/Consignor",
+      "field": "consignor.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper State is not 2 letters",
+      "field": "shipper.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Supplier",
+      "name": "Supplier Tax ID is not a 9 digit number",
+      "field": "supplier.tax_id",
+      "test": "^[0-9]{9}$"
+    },
+    {
+      "type": "Consignor",
+      "name": "Consignor Tax ID is not a 9 digit number",
+      "field": "consignor.tax_id",
+      "test": "^[0-9]{9}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee name",
+      "field": "consignee.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Invalid Consignee Address",
+      "field": "consignee.address",
+      "test": "^[A-Za-z0-9]( ?[A-Za-z0-9\\-/]){0,35}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    }
+  ]
+}

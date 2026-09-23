@@ -1,0 +1,95 @@
+{
+  "state": "SC",
+  "spec": {
+    "document": "South Carolina Motor Fuel XML Implementation Guide (D282, draft at the time) with the FTA mfetv4.2 schema",
+    "where": "https://dor.sc.gov/find-a-form/software-developers/software-developer-updates/motor-fuel-xml-program",
+    "pinned": "2026-07-16",
+    "note": "the tests date from the 2020-10-05 specification. the return moved to the D282 xml guide on the pinned date."
+  },
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not a 3 to 15 digit number",
+      "field": "bol",
+      "test": "^[0-9]{3,15}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not a 3 to 6 digit number",
+      "field": "net",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Gross is not a 3 to 6 digit number",
+      "field": "gross",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Ship Date",
+      "field": "shipped",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Supplier",
+      "field": "supplier.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing AccountOf/Consignor",
+      "field": "consignor.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper TCN missing or Invalid Format",
+      "field": "shipper.tcn",
+      "test": "^T[0-9]{2}[a-z]{2}[0-9]{4}$"
+    },
+    {
+      "type": "Supplier",
+      "name": "Supplier Tax ID is not a 9 digit number",
+      "field": "supplier.tax_id",
+      "test": "^[0-9]{9}$"
+    },
+    {
+      "type": "Consignor",
+      "name": "Consignor Tax ID is not a 9 digit number",
+      "field": "consignor.tax_id",
+      "test": "^[0-9]{9}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee Tax ID is not a 9 digit number",
+      "field": "consignee.tax_id",
+      "test": "^[0-9]{9}$"
+    }
+  ]
+}

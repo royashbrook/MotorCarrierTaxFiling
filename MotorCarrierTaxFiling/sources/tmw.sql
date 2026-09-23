@@ -16,10 +16,10 @@ with o as (
 		orderheader o
 	where
 		o.ord_status = 'CMP' --completed orders
-		-- orders completed in this period
+		-- orders completed (or started, for a state that counts by start date) in this period
 		and (
-			year(o.ord_completiondate) = @py
-			and month(o.ord_completiondate) = @pm
+			year(o.ord_$(PeriodBasis)date) = @py
+			and month(o.ord_$(PeriodBasis)date) = @pm
 		)
 		and ord_revtype1 = '$(RevType1)'
 		--note that some freightitems will get filtered out below
@@ -89,17 +89,21 @@ fmt as (
 			when shipper.state = @sa
 			and consignee.state = @sa then '14C'
 		end,
-		[cmd_code] = lul.cmd_code
+		[cmd_code] = lul.cmd_code,
+		-- read by a state's shaping and dropped before the rows go on
+		[consignee.county] = consignee.county
 	from
 		lul
 		outer apply (
 			select
-				top 1 [name] = cmp_name,
-				[state] = cmp_state
+				top 1 [name] = cmp.cmp_name,
+				[state] = case '$(ShipperState)' when 'city' then cty.cty_state else cmp.cmp_state end
 			from
-				company
+				company cmp
+				left join city cty on cty.cty_code = cmp.cmp_city
 			where
-				cmp_id = lul.fgt_shipper
+				cmp.cmp_id = lul.fgt_shipper
+				and ('$(ShipperState)' = 'company' or cty.cty_code is not null)
 		) shipper
 		outer apply (
 			select
@@ -135,7 +139,8 @@ fmt as (
 				[city] = cty.cty_name,
 				[state] = cty.cty_state,
 				[zip] = cmp_zip,
-				[tax_id] = cmp_taxid
+				[tax_id] = cmp_taxid,
+				[county] = upper(ltrim(rtrim(cty.county_name)))
 			from
 				company cmp
 				join city cty on cty.cty_code = cmp.cmp_city

@@ -440,3 +440,78 @@ Describe 'The tmw source' {
         { Resolve-MctfSettings -SettingsPath $path -RunAt $script:kyRunAt } | Should -Throw '*tmw is*'
     }
 }
+
+Describe 'State shaping on the tmw source' {
+    BeforeAll {
+        function New-ShapeSettings([string] $State, [string] $Period = '202608') { @{ mctf = @{ state = $State; period = $Period } } }
+        function New-Row([hashtable] $Values) {
+            $row = [ordered]@{ fgt_number = '1'; delivered = '2026-08-15T10:00:00-04:00'; 'consignor.name' = 'A'; 'consignee.address' = 'X'; 'consignee.state' = 'FL'; 'consignee.dep' = [DBNull]::Value; schedule = '14A'; cmd_code = '065'; 'consignee.county' = 'DUVAL' }
+            foreach ($k in $Values.Keys) { $row[$k] = $Values[$k] }
+            [pscustomobject]$row
+        }
+    }
+    It 'drops the source helper column for every state, shaped or not' {
+        $out = @(Invoke-MctfStateShape -Rows @(New-Row @{}) -Settings (New-ShapeSettings 'KY'))
+        $out[0].PSObject.Properties.Name | Should -Not -Contain 'consignee.county'
+        $out[0].PSObject.Properties.Name | Should -Contain 'cmd_code'
+    }
+    It 'cuts the south carolina consignor name to 35 characters and leaves a null alone' {
+        $out = @(Invoke-MctfStateShape -Rows @((New-Row @{ 'consignor.name' = ('N' * 40) }), (New-Row @{ 'consignor.name' = [DBNull]::Value })) -Settings (New-ShapeSettings 'SC'))
+        $out[0].'consignor.name' | Should -Be ('N' * 35)
+        $out[1].'consignor.name' | Should -BeOfType [DBNull]
+    }
+    It 'spells out the tennessee schedules' {
+        $out = @(Invoke-MctfStateShape -Rows @(New-Row @{ schedule = '14B' }) -Settings (New-ShapeSettings 'TN'))
+        $out[0].schedule | Should -Be '2A - Product loaded at an out-of-state terminal, bulk plant, or refinery and delivered to Tennessee'
+    }
+    It 'cleans the alabama address in the order the state query always did' {
+        $rows = @(
+            (New-Row @{ 'consignee.address' = "12 Main St., Suite #4 (Rear) & Co: O'Neil" })
+            (New-Row @{ 'consignee.address' = [DBNull]::Value })
+            (New-Row @{ 'consignee.address' = ('A' * 40) })
+        )
+        $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'AL'))
+        # worked by hand from the query's nested replaces: & @ # . : ' become spaces, , ( ) go, then
+        # every pair of spaces goes, then the ends are trimmed and it is cut to 35
+        $out[0].'consignee.address' | Should -Be '12 Main StSuite4 Rear CoO Neil'
+        $out[1].'consignee.address' | Should -Be 'No Address'
+        $out[2].'consignee.address' | Should -Be ('A' * 35)
+        $out[0].'consignee.dep' | Should -Be 'FL'
+    }
+    It 'marks florida rows delivered in the period, right after the delivery date' {
+        $out = @(Invoke-MctfStateShape -Rows @((New-Row @{}), (New-Row @{ delivered = '2026-09-01T01:00:00-04:00' }), (New-Row @{ delivered = [DBNull]::Value })) -Settings (New-ShapeSettings 'FL'))
+        $names = @($out[0].PSObject.Properties.Name)
+        $names.IndexOf('delivered.inperiod') | Should -Be ($names.IndexOf('delivered') + 1)
+        @($out.'delivered.inperiod') | Should -Be @('1', '0', '0')
+    }
+    It 'fills a missing florida DEP number with the county placeholder in state, and the state out of it' {
+        $rows = @(
+            (New-Row @{})
+            (New-Row @{ 'consignee.state' = 'GA'; 'consignee.county' = 'COBB' })
+            (New-Row @{ 'consignee.dep' = '160000001' })
+            (New-Row @{ 'consignee.county' = 'NOWHERE' })
+            (New-Row @{ 'consignee.county' = 'DE SOTO' })
+        )
+        $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'FL'))
+        @($out.'consignee.dep') | Should -Be @('161111111', 'GA', '160000001', 'FL', '141111111')
+    }
+    It 'reads the period basis from the state file and the shipper state from the source settings' {
+        $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.ky.json') -RunAt ([datetime]'2026-09-15')
+        Get-MctfTmwVariable -Settings $cfg | Should -Contain 'PeriodBasis=completion'
+        Get-MctfTmwVariable -Settings $cfg | Should -Contain 'ShipperState=company'
+        $cfg.mctf.state = 'NC'
+        $cfg.mctf.source.shipper_state = 'city'
+        Get-MctfTmwVariable -Settings $cfg | Should -Contain 'PeriodBasis=start'
+        Get-MctfTmwVariable -Settings $cfg | Should -Contain 'ShipperState=city'
+        $cfg.mctf.source.shipper_state = 'zip'
+        { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*company or city*'
+    }
+    It 'ships a state file with tests and a dated spec for every state' {
+        foreach ($s in 'AL', 'FL', 'KY', 'NC', 'SC', 'TN', 'VA') {
+            $state = Get-MctfState -State $s
+            $state.tests.Count | Should -BeGreaterThan 10
+            $state.spec.pinned | Should -Match '^\d{4}-\d{2}'
+            $state.spec.where | Should -Match '^https?://'
+        }
+    }
+}

@@ -1,0 +1,137 @@
+{
+  "state": "FL",
+  "spec": {
+    "document": "Florida petroleum carrier import file specifications (flat file and CSV), with DR-309654 for the DEP facility number",
+    "where": "https://floridarevenue.com/Forms_library/current/dr309654.pdf",
+    "pinned": "2026-07-31",
+    "note": "the tests date from the 2020-10-01 specification. the DEP placeholder for an in-state delivery follows DR-309654 as of the pinned date. import spec: http://floridarevenue.com/taxes/Documents/import_file_specifications.pdf"
+  },
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not a 3 to 12 digit number",
+      "field": "bol",
+      "test": "^[0-9]{3,12}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not a 3 to 6 digit number",
+      "field": "net",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Gross is not a 3 to 6 digit number",
+      "field": "gross",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Ship Date",
+      "field": "shipped",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Supplier",
+      "field": "supplier.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing AccountOf/Consignor",
+      "field": "consignor.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper State is not 2 letters",
+      "field": "shipper.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper TCN missing or Invalid Format",
+      "field": "shipper.tcn",
+      "test": "^T[0-9]{2}[a-z]{2}[0-9]{4}$"
+    },
+    {
+      "type": "Supplier",
+      "name": "Supplier Tax ID is not a 9 digit number",
+      "field": "supplier.tax_id",
+      "test": "^[0-9]{9,}$"
+    },
+    {
+      "type": "Consignor",
+      "name": "Consignor Tax ID is not a 9 digit number",
+      "field": "consignor.tax_id",
+      "test": "^[0-9]{9,}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee name",
+      "field": "consignee.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee Address",
+      "field": "consignee.address",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee City",
+      "field": "consignee.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee Zip",
+      "field": "consignee.zip",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee Tax ID is not a 9 digit number",
+      "field": "consignee.tax_id",
+      "test": "^[0-9]{9,}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee DEP is not a valid-county DEP facility number or a 2 letter state",
+      "field": "consignee.dep",
+      "test": "^(0[1-9]|[1-5][0-9]|6[0-7])[0-9]{7}$|^[a-z]{2}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Delivery date outside the filing period",
+      "field": "delivered.inperiod",
+      "test": "^1$"
+    }
+  ]
+}
