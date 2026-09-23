@@ -1,10 +1,8 @@
 using namespace System.Collections.Generic
 
 # Every stage below is a plain function with no DataAgent dependency, so each can be proven on its
-# own. New-MctfConfig is the only DataAgent-shaped thing here: it returns the config that
-# Invoke-DataAgent takes, and the feed's own job.ps1 makes that call. DataAgent 0.4 runs from the
-# calling script's directory, so a module cannot make the call on the feed's behalf without moving
-# the log and the package into the module's install folder.
+# own. New-MctfConfig builds the config Invoke-DataAgent takes, and Invoke-MctfFeed runs it with the
+# runner's directory set to the feed's folder, so a job imports this module and makes one call.
 
 function ConvertTo-MctfHashtable {
     param($Value)
@@ -423,6 +421,26 @@ function Resolve-MctfSettings {
     $cfg
 }
 
+function Invoke-MctfFeed {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)][string] $SettingsPath,
+        [ValidateSet('Mock', 'ExportOnly', 'Live')][string] $Mode = 'Mock',
+        [string] $Period,
+        [string] $FixturePath,
+        [switch] $NoSend,
+        [datetime] $RunAt = (Get-Date)
+    )
+    # the feed is the folder that holds its settings; the runner works there, not in this module's
+    # install folder, which is where it would work if it went by who called it
+    $settings = (Resolve-Path -LiteralPath $SettingsPath).ProviderPath
+    $mctf = @{ SettingsPath = $settings; Mode = $Mode; Period = $Period; NoSend = $NoSend; RunAt = $RunAt }
+    if ($FixturePath) { $mctf.FixturePath = $FixturePath }
+    $cfg = New-MctfConfig @mctf
+    $cfg.directory = Split-Path -Parent $settings
+    Invoke-DataAgent -Config $cfg -WhatIf:$WhatIfPreference
+}
+
 function New-MctfConfig {
     [CmdletBinding()]
     param(
@@ -630,6 +648,6 @@ function Invoke-MctfSubmission {
     Write-MctfLine ("mctf: delivery=alabama state={0} acknowledgement={1} mailed={2}" -f $state, $id, (-not $NoSend))
 }
 
-Export-ModuleMember -Function Get-MctfPeriod, ConvertTo-MctfProductCode, Get-MctfTmwVariable, Get-MctfTmwRow, Get-MctfState, Invoke-MctfStateShape, Send-MctfPackageMail, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
+Export-ModuleMember -Function Invoke-MctfFeed, Get-MctfPeriod, ConvertTo-MctfProductCode, Get-MctfTmwVariable, Get-MctfTmwRow, Get-MctfState, Invoke-MctfStateShape, Send-MctfPackageMail, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
     Invoke-MctfTransform, Resolve-MctfSettings, New-MctfConfig, Write-MctfLine, Test-MctfFilingWindow, Submit-MctfAlabamaReturn,
     Read-MctfAlabamaAcknowledgement, Send-MctfAcknowledgementMail, Invoke-MctfSubmission

@@ -27,8 +27,7 @@ param([string] `$Mode = 'Mock', [string] `$Period, [switch] `$NoSend, [string] `
 Import-Module '$script:manifest' -Force -ErrorAction Stop
 `$mctf = @{ SettingsPath = "`$PSScriptRoot/settings.json"; Mode = `$Mode; Period = `$Period; NoSend = `$NoSend; RunAt = `$RunAt }
 if (`$FixturePath) { `$mctf.FixturePath = `$FixturePath }
-`$cfg = New-MctfConfig @mctf
-Invoke-DataAgent -Config `$cfg -WhatIf:`$Preview
+Invoke-MctfFeed @mctf -WhatIf:`$Preview
 "@
         [pscustomobject]@{ Directory = $dir; Job = (Join-Path $dir 'job.ps1') }
     }
@@ -259,6 +258,22 @@ Describe 'New-MctfConfig' {
 }
 
 Describe 'A feed run, end to end on DataAgent' {
+    It 'runs in the folder that holds the settings, wherever the job that calls it lives' {
+        $feed = New-Feed -Name 'fl-elsewhere' -Settings 'settings.fl.json'
+        $caller = New-Case 'fl-elsewhere-caller'
+        Set-Content -LiteralPath (Join-Path $caller 'job.ps1') -Value @"
+`$ErrorActionPreference = 'Stop'
+Import-Module '$script:manifest' -Force -ErrorAction Stop
+Invoke-MctfFeed -SettingsPath '$(Join-Path $feed.Directory 'settings.json')' -Mode Mock -RunAt ([datetime]'$($script:runAt.ToString('o'))')
+"@
+        $output = & pwsh -NoProfile -File (Join-Path $caller 'job.ps1') 2>&1 | Out-String
+        $LASTEXITCODE | Should -Be 0 -Because $output
+        Test-Path (Join-Path $feed.Directory 'rehearsal/202607.csv.zip') | Should -BeTrue
+        Test-Path (Join-Path $feed.Directory ('{0:yyyyMMdd}.log' -f (Get-Date))) | Should -BeTrue
+        @(Get-ChildItem -LiteralPath $caller -Force).Name | Should -Be @('job.ps1')
+        $installed = Split-Path -Parent $script:manifest
+        Test-Path (Join-Path $installed 'rehearsal') | Should -BeFalse
+    }
     It 'runs florida in Mock and packages five files beside the log' {
         $feed = New-Feed -Name 'fl-mock' -Settings 'settings.fl.json'
         $run = Invoke-Feed -Feed $feed

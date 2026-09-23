@@ -6,18 +6,17 @@ MCTF is motor carrier tax filing. If you carry fuel in trucks, some states requi
 
 ## What a feed looks like
 
-A feed is a directory with `settings.json`, a `get-data.sql` that produces flat freight rows, and this job:
+A feed is a directory with `settings.json` and this job:
 
 ```powershell
 param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.6.0 -ErrorAction Stop
-$cfg = New-MctfConfig -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
-Invoke-DataAgent -Config $cfg
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.7.0 -ErrorAction Stop
+Invoke-MctfFeed -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
 ```
 
-Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. The job makes the `Invoke-DataAgent` call itself, because the runner works from the calling script's directory: that is what puts the log and the package in the feed rather than in a module's install folder.
+Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. `Invoke-MctfFeed` builds the run and hands it to DataAgent with the feed's folder as the run's directory, so the log and the package land beside `settings.json` wherever the job that calls it lives. A feed that reads its own sql adds `get-data.sql`; one on TMW does not (see below).
 
-`New-MctfConfig` returns a source, a formatter and a destination:
+`New-MctfConfig` builds the run, and is there on its own if you want to look at or change the config before running it yourself. It returns a source, a formatter and a destination:
 
 ```text
 get data (sql)  →  csv round trip  →  freight and company tests  →  good / bad split
