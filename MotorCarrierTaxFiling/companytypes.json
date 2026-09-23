@@ -1,0 +1,44 @@
+[
+  {
+    "t": "Shipper",
+    "k": "shipper.cmp_id",
+    "f": [
+      "shipper.cmp_id",
+      "shipper.name",
+      "shipper.state",
+      "shipper.tcn"
+    ]
+  },
+  {
+    "t": "Supplier",
+    "k": "supplier.cmp_id",
+    "f": [
+      "supplier.cmp_id",
+      "supplier.name",
+      "supplier.tax_id"
+    ]
+  },
+  {
+    "t": "Consignor",
+    "k": "consignor.cmp_id",
+    "f": [
+      "consignor.cmp_id",
+      "consignor.name",
+      "consignor.tax_id"
+    ]
+  },
+  {
+    "t": "Consignee",
+    "k": "consignee.cmp_id",
+    "f": [
+      "consignee.cmp_id",
+      "consignee.name",
+      "consignee.address",
+      "consignee.city",
+      "consignee.state",
+      "consignee.zip",
+      "consignee.tax_id",
+      "consignee.dep"
+    ]
+  }
+]

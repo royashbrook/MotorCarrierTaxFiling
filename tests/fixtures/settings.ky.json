@@ -1,0 +1,26 @@
+{
+  "file_format": "{0:yyyyMM}-tax-ky.edi",
+  "mail": {
+    "from": "sender@example.invalid",
+    "to": [
+      "filer@example.invalid"
+    ],
+    "subject": "KY Taxes"
+  },
+  "msgraph": {
+    "tenant_id": "TENANT_GUID",
+    "client_id": "APP_CLIENT_GUID",
+    "client_secret": ""
+  },
+  "mctf": {
+    "state": "KY",
+    "filer_id": "012345678",
+    "source": {
+      "name": "tmw",
+      "revtype1": "ABC",
+      "commodity_classes": ["100", "200"],
+      "note_types": { "tcn": "tin", "dep": "dep" },
+      "products": { "065": ["150", "189"], "E10": ["101", "105"] }
+    }
+  }
+}

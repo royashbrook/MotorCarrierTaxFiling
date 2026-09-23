@@ -370,3 +370,73 @@ Invoke-MctfSubmission -Settings `$cfg -ArtifactPath (Join-Path '$dir' 'none.zip'
         $output | Should -Not -Match 'ShouldProcess|NonInteractive'
     }
 }
+Describe 'The tmw source' {
+    BeforeAll {
+        $script:kySettings = Join-Path $script:fixtures 'settings.ky.json'
+        $script:kyRunAt = [datetime]'2026-09-15'
+    }
+    It 'maps the product codes the way sql server compares them, and flags what is unmapped' {
+        $rows = @(
+            [pscustomobject]@{ fgt_number = '1'; cmd_code = '150'; net = '100' }
+            [pscustomobject]@{ fgt_number = '2'; cmd_code = '105  '; net = '200' }
+            [pscustomobject]@{ fgt_number = '3'; cmd_code = '999'; net = '300' }
+            [pscustomobject]@{ fgt_number = '4'; cmd_code = [DBNull]::Value; net = '400' }
+        )
+        $out = @(ConvertTo-MctfProductCode -Rows $rows -Products @{ '065' = @('150'); 'E10' = @('105') })
+        $out.cmd_code[0] | Should -Be '065'
+        $out.cmd_code[1] | Should -Be 'E10'
+        $out.cmd_code[2] | Should -Be 'nocode-999'
+        $out[3].cmd_code | Should -BeOfType [DBNull]
+        # the column order is the query's, which the reports keep
+        @($out[0].PSObject.Properties.Name) | Should -Be @('fgt_number', 'cmd_code', 'net')
+    }
+    It 'maps the rows of a sql result, keeping every column' {
+        $table = [System.Data.DataTable]::new()
+        foreach ($c in 'fgt_number', 'cmd_code') { $null = $table.Columns.Add($c, [string]) }
+        $table.Columns['cmd_code'].MaxLength = 3
+        $null = $table.Rows.Add('1', '999')
+        $out = @(ConvertTo-MctfProductCode -Rows @($table.Rows) -Products @{ '065' = @('150') })
+        $out[0].cmd_code | Should -Be 'nocode-999'
+        $out[0].fgt_number | Should -Be '1'
+    }
+    It 'refuses a source code mapped to two products' {
+        { ConvertTo-MctfProductCode -Rows @() -Products @{ '065' = @('150'); 'E10' = @('150') } } | Should -Throw '*mapped twice*'
+    }
+    It 'hands the query every variable it reads, and nothing it does not' {
+        $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
+        $vars = Get-MctfTmwVariable -Settings $cfg
+        $vars | Should -Contain 'State=ky'
+        $vars | Should -Contain 'PeriodStart=20260801'
+        $vars | Should -Contain 'CommodityClasses=100,200'
+        $sql = Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/sources/tmw.sql') -Raw
+        $used = @([regex]::Matches($sql, '\$\((\w+)\)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+        $given = @($vars | ForEach-Object { ($_ -split '=', 2)[0] } | Sort-Object -Unique)
+        $given | Should -Be $used
+    }
+    It 'refuses a source setting that is not a plain code, since it goes into the query as text' {
+        $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
+        $cfg.mctf.source.revtype1 = "x'; drop table orderheader --"
+        { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*plain code*'
+    }
+    It 'takes the state tests and company types from the module when settings carry none' {
+        $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt
+        $state = Get-Content -LiteralPath (Join-Path $script:root 'MotorCarrierTaxFiling/states/KY.json') -Raw | ConvertFrom-Json
+        $cfg.tests.Count | Should -Be $state.tests.Count
+        $cfg.tests[0].name | Should -Be $state.tests[0].name
+        $cfg.companytypes.Count | Should -Be 4
+        $state.spec.pinned | Should -Match '^\d{4}-\d{2}-\d{2}$'
+    }
+    It 'reads the database through the tmw adapter, and still rehearses from the fixture in Mock' {
+        (New-MctfConfig -SettingsPath $script:kySettings -Mode Live -NoSend -RunAt $script:kyRunAt).src.adapter | Should -BeLike '*tmw.ps1'
+        (New-MctfConfig -SettingsPath $script:kySettings -Mode Mock -RunAt $script:kyRunAt).src.adapter | Should -Be 'csv'
+    }
+    It 'takes an explicit period, since the tmw query reads the period it is given' {
+        $cfg = Resolve-MctfSettings -SettingsPath $script:kySettings -RunAt $script:kyRunAt -Period '202601'
+        Get-MctfTmwVariable -Settings $cfg | Should -Contain 'PeriodStart=20260101'
+    }
+    It 'refuses a source it does not read' {
+        $path = Join-Path $script:work 'settings.other.json'
+        (Get-Content -LiteralPath $script:kySettings -Raw) -replace '"name": "tmw"', '"name": "other"' | Set-Content -LiteralPath $path
+        { Resolve-MctfSettings -SettingsPath $path -RunAt $script:kyRunAt } | Should -Throw '*tmw is*'
+    }
+}

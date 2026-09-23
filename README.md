@@ -11,7 +11,7 @@ A feed is a directory with `settings.json`, a `get-data.sql` that produces flat 
 ```powershell
 param([ValidateSet('Mock','ExportOnly','Live')][string]$Mode = 'Mock', [string]$Period, [switch]$NoSend)
 Import-Module DataAgent -RequiredVersion 0.4.1 -ErrorAction Stop
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.2.2 -ErrorAction Stop
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.3.0 -ErrorAction Stop
 $cfg = New-MctfConfig -SettingsPath "$PSScriptRoot/settings.json" -Mode $Mode -Period $Period -NoSend:$NoSend
 Invoke-DataAgent -Config $cfg
 ```
@@ -75,6 +75,28 @@ A period is reported several times before its filing date, and each run replaces
 - `companytypes` define a company: its type, the key field and the fields that identify it.
 - `keepdays` and `purgefiles` drive DataAgent's retention, and are passed through only when the feed sets them. Setting `purgefiles` means the runner needs the `Clear-Files` module installed.
 
+## Reading from TMW
+
+A feed on TMW can leave out `sql`, `tests` and `companytypes` and name its source instead:
+
+```json
+"mctf": {
+  "state": "KY",
+  "filer_id": "012345678",
+  "source": {
+    "name": "tmw",
+    "revtype1": "ABC",
+    "commodity_classes": ["100", "200"],
+    "note_types": { "tcn": "tin", "dep": "dep" },
+    "products": { "065": ["150", "189"], "E10": ["101", "105"] }
+  }
+}
+```
+
+The module reads the freight with a stock TMW query, `sources/tmw.sql`, which takes the period it is given, so an explicit `-Period` works. The settings carry only what belongs to one TMW installation: the revenue type and commodity classes in scope, the note types holding the shipper's terminal control number and the consignee's DEP number, and the product mapping from your commodity codes to the state's product codes. A commodity code with no mapping comes through as `nocode-<code>` and fails the commodity test, so it lands on the exception report rather than in the return.
+
+Each state's tests ship in `states/<state>.json`, with the specification they were built against and the date of that version. The company types are the same for every state and ship in `companytypes.json`. A feed that sets its own `tests` or `companytypes` keeps them. Kentucky is the first state with a file here.
+
 ## Alabama
 
 Alabama is the one state whose return is submitted by the feed rather than filed by a person. Add `"submit": { "window": [14, 20] }` under `mctf`. On a run inside the window the return is posted to the state's REST endpoint with basic auth, the acknowledgement is parsed, and the zip goes out with the acknowledgement in the mail body. Outside the window the mail says no filing was done. A test submission (`MCTF_PROCESS_TYPE=T`) ignores the window and stamps the return as a test.
@@ -83,7 +105,7 @@ Environment: `MCTF_SUBMIT_URI`, `MCTF_SUBMIT_USER`, `MCTF_SUBMIT_PASSWORD`, `MCT
 
 ## What it does not do
 
-No scheduler, no credential storage, no amendment switch yet, and nothing about any particular company is built in. The formatter, the mail and the sql are the modules they always were.
+No scheduler, no credential storage, no amendment switch yet, and nothing about any particular company is built in. The formatter and the mail are the modules they always were.
 
 ## Upgrading from 0.1.1
 

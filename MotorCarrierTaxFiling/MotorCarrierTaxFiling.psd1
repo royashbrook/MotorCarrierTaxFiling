@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.2.2'
+    ModuleVersion = '0.3.0'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -12,6 +12,9 @@
     )
     FunctionsToExport = @(
         'Get-MctfPeriod'
+        'ConvertTo-MctfProductCode'
+        'Get-MctfTmwVariable'
+        'Get-MctfTmwRow'
         'Test-MctfRecord'
         'Split-MctfRecord'
         'Export-MctfExceptionReport'
@@ -37,6 +40,10 @@
         'adapters/package.ps1'
         'adapters/mail.ps1'
         'adapters/alabama.ps1'
+        'adapters/tmw.ps1'
+        'sources/tmw.sql'
+        'states/KY.json'
+        'companytypes.json'
         'adapters/skip.ps1'
     )
     PrivateData = @{
@@ -44,7 +51,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'The Alabama submission no longer stops to ask for confirmation on an unattended run. Submit-MctfAlabamaReturn is high impact, so on a non-interactive runner its prompt threw before the request went out and the run mailed the error instead of filing. Invoke-MctfSubmission now calls it with -Confirm:$false, and a hand call still asks.'
+            ReleaseNotes = 'A tmw source: a feed can name its state and its TMW values (revenue type, commodity classes, note types, product mapping) in settings, and the module reads the freight itself with a stock TMW query. A state''s tests and the company types now ship with the module, each state file naming the specification its tests were built against. Kentucky is the first state file. Feeds that carry their own sql and tests run as before.'
         }
     }
 }

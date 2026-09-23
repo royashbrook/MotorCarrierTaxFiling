@@ -248,6 +248,75 @@ function Invoke-MctfTransform {
         $item.Name, $item.Length, (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash)
 }
 
+function ConvertTo-MctfProductCode {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]] $Rows,
+        [Parameter(Mandatory)] $Products
+    )
+    # settings map each state product code to the source's own codes. the lookup trims trailing
+    # spaces and ignores case, the way sql server compares the codes; an unmapped code keeps its
+    # value behind a nocode- prefix so the commodity test sends the row to the exception report.
+    $map = [Dictionary[string, string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in (ConvertTo-MctfHashtable $Products).GetEnumerator()) {
+        foreach ($code in @($entry.Value)) {
+            $key = ([string]$code).TrimEnd(' ')
+            if ($map.ContainsKey($key)) { throw "product code '$key' is mapped twice, to '$($map[$key])' and '$($entry.Key)'." }
+            $map[$key] = [string]$entry.Key
+        }
+    }
+    foreach ($r in $Rows) {
+        $row = [ordered]@{}
+        if ($r -is [System.Data.DataRow]) {
+            foreach ($c in $r.Table.Columns) { $row[$c.ColumnName] = $r[$c.ColumnName] }
+        } else {
+            foreach ($p in $r.PSObject.Properties) { $row[$p.Name] = $p.Value }
+        }
+        $raw = $row['cmd_code']
+        if ($raw -isnot [DBNull] -and $null -ne $raw) {
+            $mapped = $null
+            $row['cmd_code'] = if ($map.TryGetValue(([string]$raw).TrimEnd(' '), [ref]$mapped)) { $mapped } else { "nocode-$raw" }
+        }
+        [pscustomobject]$row
+    }
+}
+
+function Get-MctfTmwVariable {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] $Settings)
+    $mctf = $Settings.mctf
+    $src = $mctf.source
+    $vars = [ordered]@{
+        State            = ([string]$mctf.state).ToLowerInvariant()
+        # yyyyMMdd, the one string form sql server reads as a date whatever its language setting
+        PeriodStart      = ([datetime]$mctf.period_start).ToString('yyyyMMdd', [cultureinfo]::InvariantCulture)
+        RevType1         = [string]$src.revtype1
+        CommodityClasses = @($src.commodity_classes) -join ','
+        TcnNoteType      = [string]$src.note_types.tcn
+        DepNoteType      = [string]$src.note_types.dep
+    }
+    foreach ($k in @($vars.Keys)) {
+        # these go into the query as text, so each is held to a plain code
+        if ($vars[$k] -notmatch '^[A-Za-z0-9_.,-]+$') { throw "source setting for $k is '$($vars[$k])', expected a plain code." }
+    }
+    @($vars.Keys | ForEach-Object { '{0}={1}' -f $_, $vars[$_] })
+}
+
+function Get-MctfTmwRow {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] $Settings)
+    $src = $Settings.mctf.source
+    $sql = @{
+        InputFile    = Join-Path $PSScriptRoot 'sources/tmw.sql'
+        Variable     = Get-MctfTmwVariable -Settings $Settings
+        QueryTimeout = if ($src.query_timeout) { [int]$src.query_timeout } else { 1800 }
+    }
+    if ($env:CONNECTION_STRING) { $sql.ConnectionString = $env:CONNECTION_STRING }
+    Import-Module SqlServer -ErrorAction Stop
+    $rows = @(Invoke-Sqlcmd @sql | ForEach-Object { if ($_ -is [Data.DataTable]) { $_.Rows } else { $_ } })
+    ConvertTo-MctfProductCode -Rows $rows -Products $src.products
+}
+
 function Resolve-MctfSettings {
     [CmdletBinding()]
     param(
@@ -260,6 +329,17 @@ function Resolve-MctfSettings {
     if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, NC, SC, TN or VA.' }
     if (-not $cfg.file_format) { throw 'settings.file_format is required.' }
     $cfg.mctf.state = ([string]$cfg.mctf.state).ToUpperInvariant()
+    # a state's tests and the company types ship with the module; a feed that still carries its own
+    # keeps them. the state file also names the spec its tests were built against.
+    if (-not $cfg.tests) {
+        $stateFile = Join-Path $PSScriptRoot "states/$($cfg.mctf.state).json"
+        if (-not (Test-Path -LiteralPath $stateFile)) { throw "no tests in settings and none in the module for $($cfg.mctf.state)." }
+        $cfg.tests = (Get-Content -LiteralPath $stateFile -Raw | ConvertFrom-Json -AsHashtable).tests
+    }
+    if (-not $cfg.companytypes) {
+        $cfg.companytypes = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'companytypes.json') -Raw | ConvertFrom-Json -AsHashtable)
+    }
+    if ($cfg.mctf.source -and $cfg.mctf.source.name -ne 'tmw') { throw "source '$($cfg.mctf.source.name)' is not one the module reads; tmw is." }
     # the tests and the company types are filtered by property (Where-Object Type -eq), and a
     # hashtable does not answer that: it matches nothing, every test silently passes, and every
     # row is filed. objects, so a missing key is an error rather than an empty filter.
@@ -270,6 +350,7 @@ function Resolve-MctfSettings {
     $taxFile = $cfg.file_format -f $p.Start
     $cfg.mctf.file = $taxFile
     $cfg.mctf.period = $p.Period
+    $cfg.mctf.period_start = $p.Start
     # the runner names its one artifact from file_format, so hand it the finished zip name
     $cfg.file_format = "$taxFile.zip"
 
@@ -327,8 +408,10 @@ function New-MctfConfig {
     $src = if ($Mode -eq 'Mock') {
         $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName } else { Join-Path $PSScriptRoot 'synthetic.csv' }
         @{ adapter = 'csv'; args = @{ LiteralPath = $fixture } }
+    } elseif ($cfg.mctf.source) {
+        @{ adapter = (Join-Path $adapters 'tmw.ps1'); args = @{ Settings = $cfg } }
     } else {
-        if (-not $cfg.sql) { throw 'settings.sql is required for a run that reads the database.' }
+        if (-not $cfg.sql) { throw 'settings.sql or settings.mctf.source is required for a run that reads the database.' }
         $sqlArgs = @{} + $cfg.sql
         if ($env:CONNECTION_STRING) { $sqlArgs.ConnectionString = $env:CONNECTION_STRING }
         @{ adapter = 'sql'; args = $sqlArgs }
@@ -508,6 +591,6 @@ function Invoke-MctfSubmission {
     Write-MctfLine ("mctf: delivery=alabama state={0} acknowledgement={1} mailed={2}" -f $state, $id, (-not $NoSend))
 }
 
-Export-ModuleMember -Function Get-MctfPeriod, Send-MctfPackageMail, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
+Export-ModuleMember -Function Get-MctfPeriod, ConvertTo-MctfProductCode, Get-MctfTmwVariable, Get-MctfTmwRow, Send-MctfPackageMail, Test-MctfRecord, Split-MctfRecord, Export-MctfExceptionReport, Compress-MctfPackage,
     Invoke-MctfTransform, Resolve-MctfSettings, New-MctfConfig, Write-MctfLine, Test-MctfFilingWindow, Submit-MctfAlabamaReturn,
     Read-MctfAlabamaAcknowledgement, Send-MctfAcknowledgementMail, Invoke-MctfSubmission

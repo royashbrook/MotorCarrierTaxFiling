@@ -1,0 +1,113 @@
+{
+  "state": "KY",
+  "spec": {
+    "document": "Kentucky Motor Fuels Excise Tax Electronic Tax Filing Implementation Guide, ANSI X12 813 (KY_813_EDI_Guide_v001)",
+    "where": "https://motorfuels.ky.gov/fuelweb/assets/docs/KY_813_EDI_Guide_v001.pdf",
+    "pinned": "2021-04-19",
+    "note": "the tests match the specification as received on the pinned date. they have not yet been checked against the current guide."
+  },
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not a 3 to 20 digit number",
+      "field": "bol",
+      "test": "^[0-9]{3,20}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not a 3 to 6 digit number",
+      "field": "net",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Gross is not a 3 to 6 digit number",
+      "field": "gross",
+      "test": "^[0-9]{3,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Ship Date",
+      "field": "shipped",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Supplier",
+      "field": "supplier.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing AccountOf/Consignor",
+      "field": "consignor.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper TCN missing or Invalid Format",
+      "field": "shipper.tcn",
+      "test": "^T[0-9]{2}[a-z]{2}[0-9]{4}$"
+    },
+    {
+      "type": "Supplier",
+      "name": "Supplier Tax ID is not a 9 digit number",
+      "field": "supplier.tax_id",
+      "test": "^[0-9]{9,}$"
+    },
+    {
+      "type": "Consignor",
+      "name": "Consignor Tax ID is not a 9 digit number",
+      "field": "consignor.tax_id",
+      "test": "^[0-9]{9,}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee name",
+      "field": "consignee.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee City",
+      "field": "consignee.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee Zip",
+      "field": "consignee.zip",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee Tax ID is not a 9 digit number",
+      "field": "consignee.tax_id",
+      "test": "^[0-9]{9,}$"
+    }
+  ]
+}
