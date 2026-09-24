@@ -1,6 +1,6 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.10.0'
+    ModuleVersion = '0.11.0'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
@@ -9,7 +9,7 @@
     RequiredModules = @(
         @{ ModuleName = 'MotorFuelTaxFormats'; RequiredVersion = '0.1.1' }
         @{ ModuleName = 'Add-PrefixForLogging'; RequiredVersion = '1.0.0.2' }
-        @{ ModuleName = 'DataAgent'; ModuleVersion = '0.5.0' }
+        @{ ModuleName = 'DataAgent'; RequiredVersion = '0.6.0' }
         @{ ModuleName = 'SqlServer'; RequiredVersion = '22.4.5.1' }
         @{ ModuleName = 'Send-FileViaEmail'; RequiredVersion = '2.0.0.0' }
     )
@@ -67,7 +67,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'DataAgent is a minimum (0.5.0), not an exact pin. A job that imports a newer DataAgent first runs on that one, so a feed can move DataAgent without a release of this module. Proven on DataAgent 0.6.0: every state''s return and reports are byte for byte the same as on 0.5.0.'
+            ReleaseNotes = 'DataAgent is pinned again, to 0.6.0. Every dependency is an exact version, so pinning this module pins the whole run and a job imports only this module. 0.10.0 took DataAgent as a minimum; that is undone. On 0.6.0 every state''s return and reports are byte for byte the same as on 0.5.0.'
         }
     }
 }

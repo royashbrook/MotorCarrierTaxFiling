@@ -1,6 +1,6 @@
 # MotorCarrierTaxFiling
 
-Validate freight records, report the exceptions, format the state return, package it, and for Alabama submit it. The stages of a motor carrier tax filing feed, as a PowerShell module that runs on [DataAgent](https://github.com/royashbrook/DataAgent) 0.5.0 or later.
+Validate freight records, report the exceptions, format the state return, package it, and for Alabama submit it. The stages of a motor carrier tax filing feed, as a PowerShell module that runs on [DataAgent](https://github.com/royashbrook/DataAgent) 0.6.0.
 
 MCTF is motor carrier tax filing. If you carry fuel in trucks, some states require a monthly report of what you carried, where it came from and where it went. You do not pay tax on it, you declare it. The per-state file formats live in [MotorFuelTaxFormats](https://github.com/royashbrook/motor-fuel-tax-formats); this module is everything around the formatter.
 
@@ -10,11 +10,11 @@ A feed is a directory with `settings.json` and this job:
 
 ```powershell
 param([string]$Period, [switch]$NoSend, [ValidateSet('Mock', 'ExportOnly', 'Live')][string]$Mode = 'Mock')
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.10.0
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.11.0
 Invoke-MctfFeed "$PSScriptRoot/settings.json" -Period $Period -Mode $Mode -NoSend:$NoSend
 ```
 
-Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. DataAgent is a minimum, not a pin: a job that imports a newer DataAgent first, with `Import-Module DataAgent -RequiredVersion <version>`, runs on that one, so a feed can move DataAgent without a release of this module. A blank `-Period` is the month before the run; `yyyyMM` picks another. The log's receipt starts with the module, DataAgent and PowerShell versions that made the package. `Invoke-MctfFeed` builds the run and hands it to DataAgent with the feed's folder as the run's directory, so the log and the package land beside `settings.json` wherever the job that calls it lives. A feed that reads its own sql adds `get-data.sql`; one on TMW does not (see below).
+Importing this module brings DataAgent, SqlServer, Send-FileViaEmail and the formatter with it. Every dependency is pinned to an exact version, so pinning this module pins the whole run. A blank `-Period` is the month before the run; `yyyyMM` picks another. The log's receipt starts with the module, DataAgent and PowerShell versions that made the package. `Invoke-MctfFeed` builds the run and hands it to DataAgent with the feed's folder as the run's directory, so the log and the package land beside `settings.json` wherever the job that calls it lives. A feed that reads its own sql adds `get-data.sql`; one on TMW does not (see below).
 
 `New-MctfConfig` builds the run, and is there on its own if you want to look at or change the config before running it yourself. It returns a source, a formatter and a destination:
 
