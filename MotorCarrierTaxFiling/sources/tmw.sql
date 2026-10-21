@@ -90,14 +90,16 @@ fmt as (
 			and consignee.state = @sa then '14C'
 		end,
 		[cmd_code] = lul.cmd_code,
-		-- read by a state's shaping and dropped before the rows go on
-		[consignee.county] = consignee.county
+		-- read by a state's shaping and dropped before the rows go on, unless the state keeps them
+		[consignee.county] = consignee.county,
+		[shipper.city] = shipper.city
 	from
 		lul
 		outer apply (
 			select
 				top 1 [name] = cmp.cmp_name,
-				[state] = case '$(ShipperState)' when 'city' then cty.cty_state else cmp.cmp_state end
+				[state] = case '$(ShipperState)' when 'city' then cty.cty_state else cmp.cmp_state end,
+				[city] = cty.cty_name
 			from
 				company cmp
 				left join city cty on cty.cty_code = cmp.cmp_city

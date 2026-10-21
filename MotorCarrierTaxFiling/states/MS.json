@@ -1,0 +1,95 @@
+{
+  "state": "MS",
+  "spec": {
+    "document": "Mississippi Common & Contract Petroleum Product Carriers Report, the TAP Carrier Return Excel Import Template, with the state's schedule and product codes",
+    "version": "new format template (Carrier Return Excel Import Template.xlsx, 2014-09-10)",
+    "where": "https://www.dor.ms.gov/business/petroleum-tax (templates: https://www.dor.ms.gov/sites/default/files/business/PetroleumExcelImportTemplates%20(1).zip, schedules: https://www.dor.ms.gov/sites/default/files/business/schcodes.pdf, products: https://www.dor.ms.gov/sites/default/files/business/product.pdf, rules: https://www.dor.ms.gov/sites/default/files/business/XMLDeveloperGuide-4.pdf)",
+    "pinned": "2026-10-20",
+    "checked": "2026-10-20",
+    "note": "the carrier report is schedule 14B only, carrier deliveries received from another state. the template takes a bill of lading of up to 20 characters, a 9 character terminal code or else a state, the purchaser's 9 digit FEIN, a date shipped inside the period and net gallons above zero; the developer guide caps a truck load at 10,000 net gallons. the purchaser on 14B is the one delivered to, the consignee."
+  },
+  "period_basis": "start",
+  "keep": [
+    "shipper.city"
+  ],
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not 1 to 20 letters or digits",
+      "field": "bol",
+      "test": "^[a-z0-9]{1,20}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not 1 to 10,000 gallons",
+      "field": "net",
+      "test": "^([1-9][0-9]{0,3}|10000)$"
+    },
+    {
+      "type": "Freight",
+      "name": "Shipped outside the filing period",
+      "field": "shipped.inperiod",
+      "test": "^1$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper City",
+      "field": "shipper.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper State is not 2 letters",
+      "field": "shipper.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper TCN is not a 9 character terminal code",
+      "field": "shipper.tcn",
+      "test": "^(T[0-9]{2}[a-z]{2}[0-9]{4})?$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee name",
+      "field": "consignee.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee City",
+      "field": "consignee.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee Tax ID is not a 9 digit number",
+      "field": "consignee.tax_id",
+      "test": "^[0-9]{9}$"
+    }
+  ]
+}

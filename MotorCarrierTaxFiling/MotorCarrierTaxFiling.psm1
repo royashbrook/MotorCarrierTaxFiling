@@ -346,6 +346,7 @@ function Invoke-MctfStateShape {
     # wants a filing to wait on a name that is a few characters long in the source system
     $state = Get-MctfState -State ([string]$Settings.mctf.state)
     $limits = if ($state -and $state.max_length) { $state.max_length } else { @{} }
+    $helpers = @('consignee.county', 'shipper.city') | Where-Object { $_ -notin @($state.keep) }
     foreach ($r in $Rows) {
         # a bol with a stray space is the same document; clean it rather than file the space
         $bol = $r.PSObject.Properties['bol']
@@ -356,7 +357,7 @@ function Invoke-MctfStateShape {
                 $p.Value = ([string]$p.Value).Substring(0, [int]$limits[$field])
             }
         }
-        if ($r.PSObject.Properties['consignee.county']) { $r.PSObject.Properties.Remove('consignee.county') }
+        foreach ($h in $helpers) { if ($r.PSObject.Properties[$h]) { $r.PSObject.Properties.Remove($h) } }
         $r
     }
 }
@@ -370,7 +371,7 @@ function Resolve-MctfSettings {
     )
     $file = Get-Item -LiteralPath $SettingsPath
     $cfg = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
-    if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, NC, SC, TN or VA.' }
+    if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, MS, NC, SC, TN or VA.' }
     if (-not $cfg.file_format) { throw 'settings.file_format is required.' }
     $cfg.mctf.state = ([string]$cfg.mctf.state).ToUpperInvariant()
     # a state's tests and the company types ship with the module; a feed that still carries its own
@@ -481,7 +482,11 @@ function New-MctfConfig {
     $artifact = if ($Mode -eq 'Live') { $cfg.file_format } else { Join-Path 'rehearsal' $cfg.file_format }
 
     $src = if ($Mode -eq 'Mock') {
-        $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName } else { Join-Path $PSScriptRoot 'synthetic.csv' }
+        # a state whose return reads a different row shape ships its own mock rows
+        $stateMock = Join-Path $PSScriptRoot "states/$($cfg.mctf.state).csv"
+        $fixture = if ($FixturePath) { (Get-Item -LiteralPath $FixturePath).FullName }
+            elseif (Test-Path -LiteralPath $stateMock) { $stateMock }
+            else { Join-Path $PSScriptRoot 'synthetic.csv' }
         @{ adapter = 'csv'; args = @{ LiteralPath = $fixture } }
     } elseif ($cfg.mctf.source) {
         @{ adapter = (Join-Path $adapters 'tmw.ps1'); args = @{ Settings = $cfg } }

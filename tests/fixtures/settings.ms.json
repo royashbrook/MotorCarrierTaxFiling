@@ -1,0 +1,17 @@
+{
+  "file_format": "{0:yyyyMM}-tax-ms.xlsx",
+  "mail": {
+    "from": "sender@example.invalid",
+    "to": ["filer@example.invalid"],
+    "subject": "MS Taxes"
+  },
+  "msgraph": {
+    "tenant_id": "TENANT_GUID",
+    "client_id": "APP_CLIENT_GUID",
+    "client_secret": ""
+  },
+  "mctf": {
+    "state": "MS",
+    "template_path": "template.xlsx"
+  }
+}

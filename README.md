@@ -10,7 +10,7 @@ A feed is a directory with `settings.json` and this job:
 
 ```powershell
 param([string]$Period, [switch]$NoSend, [ValidateSet('Mock', 'ExportOnly', 'Live')][string]$Mode = 'Mock')
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.11.0
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.12.0
 Invoke-MctfFeed "$PSScriptRoot/settings.json" -Period $Period -Mode $Mode -NoSend:$NoSend
 ```
 
@@ -68,7 +68,7 @@ A period is reported several times before its filing date, and each run replaces
 
 - `file_format` names the return with a .NET date placeholder; it is filled with the period, and the zip is that name plus `.zip`.
 - `sql` is the `Invoke-Sqlcmd` arguments, with `InputFile` relative to the settings file. A plain string is taken as the file name. The connection string comes from the `CONNECTION_STRING` environment variable, never from settings.
-- `mctf.state` is one of AL, FL, KY, NC, SC, TN, VA. `filer_id`, `state_options` and `template_path` are passed to the formatter; see that module's README for what each state needs. `generated_at` pins the generation timestamp when you need a reproducible file.
+- `mctf.state` is one of AL, FL, KY, MS, NC, SC, TN, VA. `filer_id`, `state_options` and `template_path` are passed to the formatter; see that module's README for what each state needs. `generated_at` pins the generation timestamp when you need a reproducible file.
 - `tests` name a field and a regex. A `Freight` test applies to every row. Any other type applies once per distinct company of that type, and every row that references a failing company becomes an exception too.
 - `companytypes` define a company: its type, the key field and the fields that identify it.
 - `keepdays` and `purgefiles` drive DataAgent's retention, and are passed through only when the feed sets them. Setting `purgefiles` means the runner needs the `Clear-Files` module installed.
@@ -95,7 +95,7 @@ The module reads the freight with a stock TMW query, `sources/tmw.sql`, which ta
 
 Each state's tests ship in `states/<state>.json`, with the specification they were built against, its version, where it lives, and the date it was last checked against what the state publishes. Where a test is stricter or looser than that specification the state file says so. `max_length` lists how long each field may be in that state, and a longer value is cut to fit before the rows are tested, so a long name in the source system never holds a row back. The company types are the same for every state and ship in `companytypes.json`. `defaulttests.json` adds a few tests to every state on top of its own, for what no state wants whatever its rules allow: a load under 100 gallons and a placeholder bol. A feed that sets its own `tests` or `companytypes` keeps them. Every supported state has a file.
 
-What differs by state lives with the state. A state file can set `period_basis` to `start` when the state counts an order in the month it started (North Carolina) rather than the month it completed. `states/<state>.ps1`, where there is one, shapes the rows before they are tested: Tennessee spells out its schedule names, Alabama cleans the consignee address and fills a missing DEP number with the state, and Florida marks each row delivered in the period or not and fills a missing DEP number with the DEP county placeholder from DR-309654.
+What differs by state lives with the state. A state file can set `period_basis` to `start` when the state counts an order in the month it started (North Carolina) rather than the month it completed. `states/<state>.ps1`, where there is one, shapes the rows before they are tested: Tennessee spells out its schedule names, Alabama cleans the consignee address and fills a missing DEP number with the state, Florida marks each row delivered in the period or not and fills a missing DEP number with the DEP county placeholder from DR-309654, and Mississippi keeps only schedule 14B (its carrier report is loads brought into the state) and marks each row shipped in the period or not. A state file's `keep` names the source helper columns its return reads (Mississippi keeps `shipper.city`); every other state drops them before the rows are tested. A state whose rows have their own shape ships its own Mock rows as `states/<state>.csv`.
 
 `"shipper_state": "city"` in the source settings reads a shipper's state from its city record instead of the company record, for an installation where the city is the one kept current.
 
@@ -119,6 +119,6 @@ DataAgent 0.4.0 replaced the pipeline API with `Invoke-DataAgent -Config`, so `I
 Invoke-Pester -Path ./tests -CI
 ```
 
-Every fixture here is synthetic. Equivalence against live feeds is checked privately and stays there: for one filer and one settled period, all seven states produced the same rowset, the same four exception reports and the same return as the running feeds, byte for byte, with the Tennessee workbook compared by cell.
+Every fixture here is synthetic. Equivalence against live feeds is checked privately and stays there: for one filer and one settled period, the seven states before Mississippi produced the same rowset, the same four exception reports and the same return as the running feeds, byte for byte, with the Tennessee workbook compared by cell.
 
 License: [MIT](LICENSE).

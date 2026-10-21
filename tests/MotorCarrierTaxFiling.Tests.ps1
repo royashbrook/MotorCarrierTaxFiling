@@ -297,6 +297,28 @@ Invoke-MctfFeed -SettingsPath '$(Join-Path $feed.Directory 'settings.json')' -Mo
         $log | Should -Match 'mctf: artifact=202607.csv.zip bytes=\d+ sha256=[0-9A-F]{64}'
         $log | Should -Match 'mctf: delivery=none reason=Mock is a rehearsal'
     }
+    It 'runs mississippi in Mock from its own rows into the carrier import sheet' {
+        Import-Module ImportExcel -MinimumVersion 7.8.10
+        $feed = New-Feed -Name 'ms-mock' -Settings 'settings.ms.json'
+        $package = Open-ExcelPackage -Path (Join-Path $feed.Directory 'template.xlsx') -Create
+        $null = Add-Worksheet -ExcelPackage $package -WorksheetName 'Carrier Receipts Disbursements'
+        Close-ExcelPackage -ExcelPackage $package
+        $run = Invoke-Feed -Feed $feed
+        $run.ExitCode | Should -Be 0 -Because $run.Output
+        $log = Get-Content (Join-Path $feed.Directory ('{0:yyyyMMdd}.log' -f (Get-Date))) -Raw
+        # the third row's consignee has no FEIN, so it goes to the exception report
+        $log | Should -Match 'mctf: state=MS period=202607 rows=3 good=2 bad=1 companyexceptions=1'
+        $output = Open-ExcelPackage -Path (Join-Path $feed.Directory 'rehearsal/202607-tax-ms.xlsx')
+        try {
+            $cells = $output.Workbook.Worksheets['Carrier Receipts Disbursements'].Cells
+            @(1..7 | ForEach-Object { [string]$cells[2, $_].Value }) | Should -Be @('1000101', '14B', '065', 'J', 'T62TN2201', '', '')
+            @(1..7 | ForEach-Object { [string]$cells[3, $_].Value }) | Should -Be @('1000102', '14B', '160', 'J', '', 'AL', 'Mobile')
+            $cells[4, 1].Value | Should -BeNullOrEmpty
+        }
+        finally {
+            Close-ExcelPackage -ExcelPackage $output -NoSave
+        }
+    }
     It 'runs alabama through the formatter with its state options' {
         $feed = New-Feed -Name 'al-mock' -Settings 'settings.al.json'
         (Invoke-Feed -Feed $feed).ExitCode | Should -Be 0
@@ -487,7 +509,7 @@ Describe 'State shaping on the tmw source' {
     BeforeAll {
         function New-ShapeSettings([string] $State, [string] $Period = '202608') { @{ mctf = @{ state = $State; period = $Period } } }
         function New-Row([hashtable] $Values) {
-            $row = [ordered]@{ fgt_number = '1'; delivered = '2026-08-15T10:00:00-04:00'; 'consignor.name' = 'A'; 'consignee.address' = 'X'; 'consignee.state' = 'FL'; 'consignee.dep' = [DBNull]::Value; schedule = '14A'; cmd_code = '065'; 'consignee.county' = 'DUVAL' }
+            $row = [ordered]@{ fgt_number = '1'; delivered = '2026-08-15T10:00:00-04:00'; 'consignor.name' = 'A'; 'consignee.address' = 'X'; 'consignee.state' = 'FL'; 'consignee.dep' = [DBNull]::Value; schedule = '14A'; cmd_code = '065'; 'consignee.county' = 'DUVAL'; 'shipper.city' = 'JACKSONVILLE' }
             foreach ($k in $Values.Keys) { $row[$k] = $Values[$k] }
             [pscustomobject]$row
         }
@@ -498,10 +520,26 @@ Describe 'State shaping on the tmw source' {
         @($out[0].bol, $out[1].bol) | Should -Be @('122259', '1483388')
         $out[2].bol | Should -BeOfType [DBNull]
     }
-    It 'drops the source helper column for every state, shaped or not' {
+    It 'drops the source helper columns for every state, shaped or not' {
         $out = @(Invoke-MctfStateShape -Rows @(New-Row @{}) -Settings (New-ShapeSettings 'KY'))
         $out[0].PSObject.Properties.Name | Should -Not -Contain 'consignee.county'
+        $out[0].PSObject.Properties.Name | Should -Not -Contain 'shipper.city'
         $out[0].PSObject.Properties.Name | Should -Contain 'cmd_code'
+    }
+    It 'keeps only mississippi 14B rows, marks them shipped in the period, and keeps the shipper city' {
+        $rows = @(
+            (New-Row @{ fgt_number = '1'; schedule = '14B'; shipped = '2026-08-03T06:00:00-05:00' })
+            (New-Row @{ fgt_number = '2'; schedule = '14A'; shipped = '2026-08-04T06:00:00-05:00' })
+            (New-Row @{ fgt_number = '3'; schedule = '14B'; shipped = '2026-07-31T23:00:00-05:00' })
+            (New-Row @{ fgt_number = '4'; schedule = '14C'; shipped = '2026-08-05T06:00:00-05:00' })
+        )
+        $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'MS'))
+        @($out.fgt_number) | Should -Be @('1', '3')
+        @($out.'shipped.inperiod') | Should -Be @('1', '0')
+        $names = @($out[0].PSObject.Properties.Name)
+        $names.IndexOf('shipped.inperiod') | Should -Be ($names.IndexOf('shipped') + 1)
+        $out[0].'shipper.city' | Should -Be 'JACKSONVILLE'
+        $names | Should -Not -Contain 'consignee.county'
     }
     It 'cuts a value longer than the state takes to fit, and leaves a null or a short value alone' {
         $sc = @(Invoke-MctfStateShape -Rows @((New-Row @{ 'consignor.name' = ('N' * 60) }), (New-Row @{ 'consignor.name' = [DBNull]::Value }), (New-Row @{ 'consignor.name' = ('N' * 40) })) -Settings (New-ShapeSettings 'SC'))
@@ -560,7 +598,7 @@ Describe 'State shaping on the tmw source' {
         { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*company or city*'
     }
     It 'ships a state file with tests and a dated spec for every state' {
-        foreach ($s in 'AL', 'FL', 'KY', 'NC', 'SC', 'TN', 'VA') {
+        foreach ($s in 'AL', 'FL', 'KY', 'MS', 'NC', 'SC', 'TN', 'VA') {
             $state = Get-MctfState -State $s
             $state.tests.Count | Should -BeGreaterThan 10
             $state.spec.pinned | Should -Match '^\d{4}-\d{2}'
