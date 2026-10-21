@@ -1,0 +1,94 @@
+{
+  "state": "LA",
+  "spec": {
+    "document": "Louisiana Motor Fuel Transporter Monthly Report, R-5346, with Schedule G, R-5348, Motor Fuel Transporter Deliveries",
+    "version": "R-5346 (7/06) and R-5348 (7/06)",
+    "where": "https://dam.ldr.la.gov/taxforms/5346(7_06)F.pdf (instructions: https://dam.ldr.la.gov/taxforms/5346(7_06)I.pdf, schedule: https://dam.ldr.la.gov/taxforms/5348(7_06)F.pdf)",
+    "pinned": "2026-10-21",
+    "checked": "2026-10-21",
+    "note": "a transporter reports every load with a Louisiana leg: Schedule G type 23 into Louisiana, 24 out of it, 25 solely within it, due the 20th of the following month. each row carries the date, where the fuel was removed (name, city, state, TCN or FEIN), the purchaser, the destination city and state, the document number and net gallons, one product per page. the state files through LaTAP and publishes no upload layout, so the return follows the paper form until one is known."
+  },
+  "keep": [
+    "shipper.city"
+  ],
+  "tests": [
+    {
+      "type": "Freight",
+      "name": "BOL is not 1 to 20 letters or digits",
+      "field": "bol",
+      "test": "^[a-z0-9]{1,20}$"
+    },
+    {
+      "type": "Freight",
+      "name": "Net is not a 1 to 6 digit number",
+      "field": "net",
+      "test": "^[0-9]{1,6}$"
+    },
+    {
+      "type": "Freight",
+      "name": "No Commodity Code Mapping",
+      "field": "cmd_code",
+      "test": "^(?!nocode-).+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Not a Schedule G type",
+      "field": "schedule",
+      "test": "^2[345]$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper",
+      "field": "shipper.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Shipper City",
+      "field": "shipper.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Freight",
+      "name": "No terminal code or supplier FEIN for where the fuel was removed",
+      "field": "origin.id",
+      "test": "^(T[0-9]{2}[a-z]{2}[0-9]{4}|[0-9]{9})$"
+    },
+    {
+      "type": "Freight",
+      "name": "Missing Consignee",
+      "field": "consignee.cmp_id",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Missing Shipper name",
+      "field": "shipper.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Shipper",
+      "name": "Shipper State is not 2 letters",
+      "field": "shipper.state",
+      "test": "^[a-z]{2}$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee name",
+      "field": "consignee.name",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Missing Consignee City",
+      "field": "consignee.city",
+      "test": "^.+$"
+    },
+    {
+      "type": "Consignee",
+      "name": "Consignee State is not 2 Letters",
+      "field": "consignee.state",
+      "test": "^[a-z]{2}$"
+    }
+  ]
+}

@@ -371,7 +371,7 @@ function Resolve-MctfSettings {
     )
     $file = Get-Item -LiteralPath $SettingsPath
     $cfg = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
-    if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, MS, NC, SC, TN or VA.' }
+    if (-not $cfg.mctf -or -not $cfg.mctf.state) { throw 'settings.mctf.state is required: AL, FL, KY, LA, MS, NC, SC, TN or VA.' }
     if (-not $cfg.file_format) { throw 'settings.file_format is required.' }
     $cfg.mctf.state = ([string]$cfg.mctf.state).ToUpperInvariant()
     # a state's tests and the company types ship with the module; a feed that still carries its own

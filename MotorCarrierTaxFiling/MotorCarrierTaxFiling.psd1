@@ -1,13 +1,13 @@
 @{
     RootModule = 'MotorCarrierTaxFiling.psm1'
-    ModuleVersion = '0.12.1'
+    ModuleVersion = '0.13.0'
     GUID = '6f2e5c1a-3b8d-4f7e-9a21-5c0d8e4b7a10'
     Author = 'Roy Ashbrook'
     Copyright = '(c) 2026 Roy Ashbrook. MIT.'
     Description = 'Motor carrier tax filing feeds: validate freight records, write exception reports, format the state return, package it, and for Alabama submit it. Builds the DataAgent 0.4 configuration the feed runs.'
     PowerShellVersion = '7.4'
     RequiredModules = @(
-        @{ ModuleName = 'MotorFuelTaxFormats'; RequiredVersion = '0.2.1' }
+        @{ ModuleName = 'MotorFuelTaxFormats'; RequiredVersion = '0.3.0' }
         @{ ModuleName = 'ImportExcel'; RequiredVersion = '7.8.10' }
         @{ ModuleName = 'Add-PrefixForLogging'; RequiredVersion = '1.0.0.2' }
         @{ ModuleName = 'DataAgent'; RequiredVersion = '0.6.0' }
@@ -54,6 +54,9 @@
         'states/FL.json'
         'states/FL.ps1'
         'states/KY.json'
+        'states/LA.json'
+        'states/LA.ps1'
+        'states/LA.csv'
         'states/MS.json'
         'states/MS.ps1'
         'states/MS.csv'
@@ -71,7 +74,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'Mississippi files both legs by state and city and never a terminal code (MotorFuelTaxFormats 0.2.1), since the state takes one or the other per leg. Its shipper terminal code test is gone: a code that is never filed no longer holds a row back.'
+            ReleaseNotes = 'Louisiana: the Motor Fuel Transporter report, every load with a Louisiana leg as Schedule G type 23 (in), 24 (out) or 25 (within), on MotorFuelTaxFormats 0.3.0. Each row carries the shipper''s terminal code, or the supplier''s FEIN when there is none, for the form''s one TCN/FEIN column. Louisiana publishes no upload layout, so the return follows the paper form.'
         }
     }
 }

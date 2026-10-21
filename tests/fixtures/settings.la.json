@@ -1,0 +1,16 @@
+{
+  "file_format": "{0:yyyyMM}-tax-la.xlsx",
+  "mail": {
+    "from": "sender@example.invalid",
+    "to": ["filer@example.invalid"],
+    "subject": "LA Taxes"
+  },
+  "msgraph": {
+    "tenant_id": "TENANT_GUID",
+    "client_id": "APP_CLIENT_GUID",
+    "client_secret": ""
+  },
+  "mctf": {
+    "state": "LA"
+  }
+}

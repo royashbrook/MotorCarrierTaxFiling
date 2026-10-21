@@ -319,6 +319,24 @@ Invoke-MctfFeed -SettingsPath '$(Join-Path $feed.Directory 'settings.json')' -Mo
             Close-ExcelPackage -ExcelPackage $output -NoSave
         }
     }
+    It 'runs louisiana in Mock from its own rows into the Schedule G workbook' {
+        Import-Module ImportExcel -MinimumVersion 7.8.10
+        $feed = New-Feed -Name 'la-mock' -Settings 'settings.la.json'
+        $run = Invoke-Feed -Feed $feed
+        $run.ExitCode | Should -Be 0 -Because $run.Output
+        $log = Get-Content (Join-Path $feed.Directory ('{0:yyyyMMdd}.log' -f (Get-Date))) -Raw
+        # the third row has neither a terminal code nor a supplier FEIN, so it goes to the exception report
+        $log | Should -Match 'mctf: state=LA period=202607 rows=3 good=2 bad=1'
+        $output = Open-ExcelPackage -Path (Join-Path $feed.Directory 'rehearsal/202607-tax-la.xlsx')
+        try {
+            $cells = $output.Workbook.Worksheets['Schedule G'].Cells
+            @(2..3 | ForEach-Object { '{0}/{1}/{2}' -f $cells[$_, 1].Value, $cells[$_, 8].Value, $cells[$_, 12].Value }) |
+                Should -Be @('23/T63AL2001/1000101', '24/T72LA2001/1000102')
+        }
+        finally {
+            Close-ExcelPackage -ExcelPackage $output -NoSave
+        }
+    }
     It 'runs alabama through the formatter with its state options' {
         $feed = New-Feed -Name 'al-mock' -Settings 'settings.al.json'
         (Invoke-Feed -Feed $feed).ExitCode | Should -Be 0
@@ -586,6 +604,17 @@ Describe 'State shaping on the tmw source' {
         $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'FL'))
         @($out.'consignee.dep') | Should -Be @('161111111', 'GA', '160000001', 'FL', '141111111')
     }
+    It 'numbers the louisiana schedules its own way and carries the terminal code or the supplier FEIN' {
+        $rows = @(
+            (New-Row @{ fgt_number = '1'; schedule = '14B'; 'shipper.tcn' = 'T63AL2001'; 'supplier.tax_id' = '111111111' })
+            (New-Row @{ fgt_number = '2'; schedule = '14A'; 'shipper.tcn' = [DBNull]::Value; 'supplier.tax_id' = '111111111' })
+            (New-Row @{ fgt_number = '3'; schedule = '14C'; 'shipper.tcn' = [DBNull]::Value; 'supplier.tax_id' = [DBNull]::Value })
+        )
+        $out = @(Invoke-MctfStateShape -Rows $rows -Settings (New-ShapeSettings 'LA'))
+        @($out.schedule) | Should -Be @('23', '24', '25')
+        @($out.'origin.id') | Should -Be @('T63AL2001', '111111111', '')
+        $out[0].'shipper.city' | Should -Be 'JACKSONVILLE'
+    }
     It 'reads the period basis from the state file and the shipper state from the source settings' {
         $cfg = Resolve-MctfSettings -SettingsPath (Join-Path $script:fixtures 'settings.ky.json') -RunAt ([datetime]'2026-09-15')
         Get-MctfTmwVariable -Settings $cfg | Should -Contain 'PeriodBasis=completion'
@@ -598,7 +627,7 @@ Describe 'State shaping on the tmw source' {
         { Get-MctfTmwVariable -Settings $cfg } | Should -Throw '*company or city*'
     }
     It 'ships a state file with tests and a dated spec for every state' {
-        foreach ($s in 'AL', 'FL', 'KY', 'MS', 'NC', 'SC', 'TN', 'VA') {
+        foreach ($s in 'AL', 'FL', 'KY', 'LA', 'MS', 'NC', 'SC', 'TN', 'VA') {
             $state = Get-MctfState -State $s
             $state.tests.Count | Should -BeGreaterThan 10
             $state.spec.pinned | Should -Match '^\d{4}-\d{2}'
