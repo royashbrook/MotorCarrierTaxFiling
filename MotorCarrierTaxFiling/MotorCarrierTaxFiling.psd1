@@ -8,6 +8,7 @@
     PowerShellVersion = '7.4'
     RequiredModules = @(
         @{ ModuleName = 'MotorFuelTaxFormats'; RequiredVersion = '0.2.0' }
+        @{ ModuleName = 'ImportExcel'; RequiredVersion = '7.8.10' }
         @{ ModuleName = 'Add-PrefixForLogging'; RequiredVersion = '1.0.0.2' }
         @{ ModuleName = 'DataAgent'; RequiredVersion = '0.6.0' }
         @{ ModuleName = 'SqlServer'; RequiredVersion = '22.4.5.1' }
@@ -70,7 +71,7 @@
             Tags = @('motor-carrier', 'tax', 'filing', 'EDI', 'DataAgent')
             LicenseUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling/blob/main/LICENSE'
             ProjectUri = 'https://github.com/royashbrook/MotorCarrierTaxFiling'
-            ReleaseNotes = 'Mississippi: the carrier report (schedule 14B, loads brought into the state) as the TAP Excel import, on MotorFuelTaxFormats 0.2.0. The state keeps only 14B rows, counts an order by its start date, and tests the date shipped against the period. The tmw source reads the shipper''s city as a helper column that only a state that keeps it sees, so the other states'' reports do not change. A state with its own row shape ships its own Mock rows.'
+            ReleaseNotes = 'Mississippi: the carrier report (schedule 14B, loads brought into the state) as the TAP Excel import, on MotorFuelTaxFormats 0.2.0. The state keeps only 14B rows, counts an order by its start date, and tests the date shipped against the period. The tmw source reads the shipper''s city as a helper column that only a state that keeps it sees, so the other states'' reports do not change. A state with its own row shape ships its own Mock rows. ImportExcel 7.8.10, which the formatter loads for the Tennessee and Mississippi workbooks, is now a pinned dependency rather than something the runner had to have already.'
         }
     }
 }
