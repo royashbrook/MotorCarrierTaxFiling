@@ -10,7 +10,7 @@ A feed is a directory with `settings.json` and this job:
 
 ```powershell
 param([string]$Period, [switch]$NoSend, [ValidateSet('Mock', 'ExportOnly', 'Live')][string]$Mode = 'Mock')
-Import-Module MotorCarrierTaxFiling -RequiredVersion 0.12.0
+Import-Module MotorCarrierTaxFiling -RequiredVersion 0.12.1
 Invoke-MctfFeed "$PSScriptRoot/settings.json" -Period $Period -Mode $Mode -NoSend:$NoSend
 ```
 

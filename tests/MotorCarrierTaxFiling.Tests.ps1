@@ -311,7 +311,7 @@ Invoke-MctfFeed -SettingsPath '$(Join-Path $feed.Directory 'settings.json')' -Mo
         $output = Open-ExcelPackage -Path (Join-Path $feed.Directory 'rehearsal/202607-tax-ms.xlsx')
         try {
             $cells = $output.Workbook.Worksheets['Carrier Receipts Disbursements'].Cells
-            @(1..7 | ForEach-Object { [string]$cells[2, $_].Value }) | Should -Be @('1000101', '14B', '065', 'J', 'T62TN2201', '', '')
+            @(1..7 | ForEach-Object { [string]$cells[2, $_].Value }) | Should -Be @('1000101', '14B', '065', 'J', '', 'TN', 'Memphis')
             @(1..7 | ForEach-Object { [string]$cells[3, $_].Value }) | Should -Be @('1000102', '14B', '160', 'J', '', 'AL', 'Mobile')
             $cells[4, 1].Value | Should -BeNullOrEmpty
         }

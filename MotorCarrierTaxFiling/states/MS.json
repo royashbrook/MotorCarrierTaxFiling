@@ -6,7 +6,7 @@
     "where": "https://www.dor.ms.gov/business/petroleum-tax (templates: https://www.dor.ms.gov/sites/default/files/business/PetroleumExcelImportTemplates%20(1).zip, schedules: https://www.dor.ms.gov/sites/default/files/business/schcodes.pdf, products: https://www.dor.ms.gov/sites/default/files/business/product.pdf, rules: https://www.dor.ms.gov/sites/default/files/business/XMLDeveloperGuide-4.pdf)",
     "pinned": "2026-10-20",
     "checked": "2026-10-20",
-    "note": "the carrier report is schedule 14B only, carrier deliveries received from another state. the template takes a bill of lading of up to 20 characters, a 9 character terminal code or else a state, the purchaser's 9 digit FEIN, a date shipped inside the period and net gallons above zero; the developer guide caps a truck load at 10,000 net gallons. the purchaser on 14B is the one delivered to, the consignee."
+    "note": "the carrier report is schedule 14B only, carrier deliveries received from another state. the template takes a bill of lading of up to 20 characters, a 9 character terminal code or a state per leg but not both (we file the state and city on both legs), the purchaser's 9 digit FEIN, a date shipped inside the period and net gallons above zero; the developer guide caps a truck load at 10,000 net gallons. the purchaser on 14B is the one delivered to, the consignee."
   },
   "period_basis": "start",
   "keep": [
@@ -60,12 +60,6 @@
       "name": "Shipper State is not 2 letters",
       "field": "shipper.state",
       "test": "^[a-z]{2}$"
-    },
-    {
-      "type": "Shipper",
-      "name": "Shipper TCN is not a 9 character terminal code",
-      "field": "shipper.tcn",
-      "test": "^(T[0-9]{2}[a-z]{2}[0-9]{4})?$"
     },
     {
       "type": "Consignee",
